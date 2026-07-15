@@ -4,7 +4,7 @@ Tags: forms, contact form, survey, turnstile, private upload
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.6
+Stable tag: 1.0.10
 License: GPLv2 or later
 
 Secure, theme-adaptive WordPress forms with a visual builder, private uploads, Cloudflare Turnstile, and a standalone submission inbox.

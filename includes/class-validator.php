@@ -190,6 +190,8 @@ final class Validator {
 
 		return array(
 			'success_message' => sanitize_text_field( (string) ( $input['success_message'] ?? __( 'Thank you. Your response has been received.', 'jplugin-formbuilder' ) ) ),
+			'eyebrow_text' => mb_substr( sanitize_text_field( (string) ( $input['eyebrow_text'] ?? __( 'Secure form', 'jplugin-formbuilder' ) ) ), 0, 120 ) ?: __( 'Secure form', 'jplugin-formbuilder' ),
+			'show_eyebrow' => ! array_key_exists( 'show_eyebrow', $input ) || ! empty( $input['show_eyebrow'] ),
 			'submit_label' => mb_substr( sanitize_text_field( (string) ( $input['submit_label'] ?? __( 'Send response', 'jplugin-formbuilder' ) ) ), 0, 120 ) ?: __( 'Send response', 'jplugin-formbuilder' ),
 			'notification_email' => sanitize_email( (string) ( $input['notification_email'] ?? get_option( 'admin_email' ) ) ),
 			'retention_days' => min( 3650, max( 0, absint( $input['retention_days'] ?? 0 ) ) ),

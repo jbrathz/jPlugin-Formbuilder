@@ -54,8 +54,9 @@ final class Plugin {
 		$uuid = sanitize_text_field( wp_unslash( (string) ( $_POST['jfb_form_uuid'] ?? '' ) ) );
 		$form = wp_is_uuid( $uuid ) ? $this->repository->get_form( $uuid, true ) : null;
 		$redirect = wp_get_referer() ?: home_url( '/' );
+		$anchor = sanitize_html_class( wp_unslash( (string) ( $_POST['jfb_feedback_anchor'] ?? '' ) ) );
 		if ( ! $form ) {
-			wp_safe_redirect( add_query_arg( array( 'jfb_status' => 'error' ), $redirect ) ); exit;
+			wp_safe_redirect( $this->redirect_with_fragment( add_query_arg( array( 'jfb_status' => 'error' ), $redirect ), $anchor ) ); exit;
 		}
 		$values = array();
 		$files  = array();
@@ -78,8 +79,16 @@ final class Plugin {
 				'turnstile' => sanitize_text_field( wp_unslash( $_POST['cf-turnstile-response'] ?? '' ) ),
 			)
 		);
-		wp_safe_redirect( add_query_arg( array( 'jfb_status' => is_wp_error( $result ) ? 'error' : 'success', 'jfb_form' => $uuid ), $redirect ) );
+		wp_safe_redirect( $this->redirect_with_fragment( add_query_arg( array( 'jfb_status' => is_wp_error( $result ) ? 'error' : 'success', 'jfb_form' => $uuid ), $redirect ), $anchor ) );
 		exit;
+	}
+
+	private function redirect_with_fragment( string $url, string $anchor ): string {
+		if ( '' === $anchor ) {
+			return $url;
+		}
+
+		return $url . '#' . rawurlencode( $anchor );
 	}
 
 	public function handle_export(): void {
@@ -93,15 +102,82 @@ final class Plugin {
 		header( 'X-Content-Type-Options: nosniff' );
 		$out = fopen( 'php://output', 'wb' );
 		fwrite( $out, "\xEF\xBB\xBF" );
-		fputcsv( $out, array( 'submission_uuid', 'form', 'status', 'created_at', 'field_key', 'value' ) );
+
+		$field_columns = $this->export_field_columns( $items );
+		$header = array_merge( array( 'submission_uuid', 'form', 'status', 'created_at' ), array_values( $field_columns ) );
+		fputcsv( $out, $header );
+
 		foreach ( $items as $item ) {
+			$row = array(
+				$this->export_cell( $item['uuid'] ),
+				$this->export_cell( $item['form_name'] ?: __( 'Deleted form', 'jplugin-formbuilder' ) ),
+				$this->export_cell( $item['status'] ),
+				$this->export_cell( $item['created_at'] ),
+			);
+
+			$values = array();
 			foreach ( $item['payload'] as $key => $value ) {
-				$value = is_array( $value ) ? implode( ' | ', $value ) : (string) $value;
-				if ( preg_match( '/^[=+\-@]/', $value ) ) { $value = "'" . $value; }
-				fputcsv( $out, array( $item['uuid'], $item['form_name'], $item['status'], $item['created_at'], $key, $value ) );
+				$values[ $key ] = $this->export_cell( $value );
 			}
+
+			$files = $this->repository->get_submission( $item['uuid'] );
+			foreach ( $files['files'] ?? array() as $file ) {
+				$current = $values[ $file['field_key'] ] ?? '';
+				$name = $this->export_cell( $file['original_name'] );
+				$values[ $file['field_key'] ] = '' === $current ? $name : $current . ' | ' . $name;
+			}
+
+			foreach ( array_keys( $field_columns ) as $field_key ) {
+				$row[] = $values[ $field_key ] ?? '';
+			}
+
+			fputcsv( $out, $row );
 		}
 		fclose( $out ); exit;
+	}
+
+	private function export_field_columns( array $items ): array {
+		$columns = array();
+		$used_labels = array();
+
+		foreach ( $items as $item ) {
+			foreach ( $item['fields'] as $field ) {
+				$type = $field['type'] ?? '';
+				$key = $field['key'] ?? '';
+				if ( '' === $key || in_array( $type, array( 'heading', 'paragraph' ), true ) || isset( $columns[ $key ] ) ) {
+					continue;
+				}
+
+				$label = trim( (string) ( $field['label'] ?? '' ) );
+				if ( '' === $label ) {
+					$label = $key;
+				}
+
+				if ( isset( $used_labels[ $label ] ) ) {
+					$label .= ' (' . $key . ')';
+				}
+
+				$used_labels[ $label ] = true;
+				$columns[ $key ] = $label;
+			}
+		}
+
+		foreach ( $items as $item ) {
+			foreach ( $item['payload'] as $key => $value ) {
+				if ( isset( $columns[ $key ] ) ) {
+					continue;
+				}
+
+				$columns[ $key ] = $key;
+			}
+		}
+
+		return $columns;
+	}
+
+	private function export_cell( mixed $value ): string {
+		$value = is_array( $value ) ? implode( ' | ', array_map( array( $this, 'export_cell' ), $value ) ) : (string) $value;
+		return preg_match( '/^[=+\-@]/', $value ) ? "'" . $value : $value;
 	}
 
 	public function handle_download(): void {

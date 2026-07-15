@@ -81,6 +81,8 @@
 		const preview = root.querySelector( '[data-builder-preview]' );
 		const saveState = root.querySelector( '[data-save-state]' );
 		const nameInput = root.querySelector( '[data-form-name]' );
+		const showEyebrowInput = root.querySelector( '[data-show-eyebrow]' );
+		const eyebrowTextInput = root.querySelector( '[data-eyebrow-text]' );
 		const statusInput = root.querySelector( '[data-form-status]' );
 		const successInput = root.querySelector( '[data-success-message]' );
 		const submitLabelInput = root.querySelector( '[data-submit-label]' );
@@ -101,6 +103,8 @@
 		} );
 
 		nameInput.value = form.name;
+		showEyebrowInput.checked = form.settings.show_eyebrow !== false;
+		eyebrowTextInput.value = form.settings.eyebrow_text || 'Secure form';
 		statusInput.value = form.status;
 		successInput.value = form.settings.success_message || '';
 		submitLabelInput.value = form.settings.submit_label || '';
@@ -108,7 +112,8 @@
 		retentionInput.value = form.settings.retention_days || 0;
 
 		function changed() { dirty = true; saveState.textContent = 'Unsaved changes'; saveState.classList.add( 'is-dirty' ); renderPreview(); }
-		[ nameInput, statusInput, successInput, submitLabelInput, emailInput, retentionInput ].forEach( function ( input ) { input.addEventListener( 'input', changed ); } );
+		[ nameInput, eyebrowTextInput, statusInput, successInput, submitLabelInput, emailInput, retentionInput ].forEach( function ( input ) { input.addEventListener( 'input', changed ); } );
+		showEyebrowInput.addEventListener( 'change', changed );
 		paletteInputs.forEach( function ( input ) { input.addEventListener( 'input', function () { form.settings.palette[ input.dataset.paletteKey ] = input.value; changed(); updateContrast(); } ); } );
 
 		function luminance( hex ) {
@@ -211,7 +216,7 @@
 			try {
 				form = await api( root.dataset.restRoot, root.dataset.restNonce, '/forms/' + encodeURIComponent( form.uuid ), { method: 'PUT', body: JSON.stringify( {
 					name: nameInput.value, status: statusInput.value, fields: form.fields,
-					settings: { success_message: successInput.value, submit_label: submitLabelInput.value, notification_email: emailInput.value, retention_days: Number( retentionInput.value ), palette: form.settings.palette || {} }
+					settings: { eyebrow_text: eyebrowTextInput.value, show_eyebrow: showEyebrowInput.checked, success_message: successInput.value, submit_label: submitLabelInput.value, notification_email: emailInput.value, retention_days: Number( retentionInput.value ), palette: form.settings.palette || {} }
 				} ) } );
 				dirty = false; saveState.textContent = 'Saved'; saveState.classList.remove( 'is-dirty' ); toast( root, 'Form saved.', false ); renderFields();
 			} catch ( error ) { saveState.textContent = 'Save failed'; toast( root, error.message, true ); } finally { button.disabled = false; }

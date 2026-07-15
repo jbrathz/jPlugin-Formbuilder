@@ -1,6 +1,24 @@
 ( function () {
 	'use strict';
 
+	const revealFeedback = function ( feedback ) {
+		if ( ! feedback ) {
+			return;
+		}
+
+		const shell = feedback.closest( '[data-jfb-form]' );
+		const header = shell ? shell.querySelector( '[data-jfb-form-header]' ) : null;
+
+		if ( header ) {
+			header.focus( { preventScroll: true } );
+			header.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+			return;
+		}
+
+		feedback.focus( { preventScroll: true } );
+		feedback.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+	};
+
 	document.querySelectorAll( '[data-jfb-form] form[data-endpoint]' ).forEach( function ( form ) {
 		form.querySelectorAll( '[data-jfb-other-input]' ).forEach( function ( input ) {
 			const wrapper = input.closest( '.jfb-choice-other' );
@@ -38,14 +56,19 @@
 				form.reset();
 				const started = form.querySelector( '[name="jfb_started_at"]' );
 				if ( started ) started.value = Math.floor( Date.now() / 1000 );
-				feedback.focus();
+				revealFeedback( feedback );
 			} catch ( error ) {
 				feedback.textContent = error.message;
 				feedback.className = 'jfb-form-feedback jfb-error';
+				revealFeedback( feedback );
 			} finally {
 				button.disabled = false;
 				form.removeAttribute( 'aria-busy' );
 			}
 		} );
+	} );
+
+	document.querySelectorAll( '[data-jfb-form-feedback].has-message' ).forEach( function ( feedback ) {
+		revealFeedback( feedback );
 	} );
 } )();

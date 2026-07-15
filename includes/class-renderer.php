@@ -33,14 +33,23 @@ final class Renderer {
 			$style .= '--jfb-' . sanitize_key( $key ) . ':' . ( sanitize_hex_color( $value ) ?: Settings::default_palette()[ $key ] ) . ';';
 		}
 
+		$form_anchor = 'jfb-form-' . substr( str_replace( '-', '', $uuid ), 0, 12 );
+		$feedback_id = 'jfb-feedback-' . substr( str_replace( '-', '', $uuid ), 0, 12 );
+		$redirect_message = $this->get_redirect_message( $uuid );
+		$feedback_class = 'jfb-form-feedback';
+		if ( $redirect_message ) {
+			$feedback_class .= ' has-message ' . $redirect_message['class'];
+		}
+
 		ob_start();
 		?>
-		<section class="jfb-form-shell" style="<?php echo esc_attr( $style ); ?>" data-jfb-form>
-			<header class="jfb-form-header"><span class="jfb-eyebrow"><?php esc_html_e( 'Secure form', 'jplugin-formbuilder' ); ?></span><h2><?php echo esc_html( $form['name'] ); ?></h2></header>
-			<div class="jfb-form-feedback" role="status" aria-live="polite"><?php $this->render_redirect_message( $uuid ); ?></div>
+		<section id="<?php echo esc_attr( $form_anchor ); ?>" class="jfb-form-shell" style="<?php echo esc_attr( $style ); ?>" data-jfb-form>
+			<header class="jfb-form-header" tabindex="-1" data-jfb-form-header><?php if ( ! array_key_exists( 'show_eyebrow', $form['settings'] ) || ! empty( $form['settings']['show_eyebrow'] ) ) : ?><span class="jfb-eyebrow"><?php echo esc_html( $form['settings']['eyebrow_text'] ?? __( 'Secure form', 'jplugin-formbuilder' ) ); ?></span><?php endif; ?><h2><?php echo esc_html( $form['name'] ); ?></h2></header>
+			<div id="<?php echo esc_attr( $feedback_id ); ?>" class="<?php echo esc_attr( $feedback_class ); ?>" role="status" aria-live="polite" tabindex="-1" data-jfb-form-feedback><?php if ( $redirect_message ) { echo esc_html( $redirect_message['message'] ); } ?></div>
 			<form class="jfb-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-endpoint="<?php echo esc_url( wp_make_link_relative( rest_url( 'jplugin-formbuilder/v1/forms/' . $uuid . '/submissions' ) ) ); ?>">
 				<input type="hidden" name="action" value="jfb_submit">
 				<input type="hidden" name="jfb_form_uuid" value="<?php echo esc_attr( $uuid ); ?>">
+				<input type="hidden" name="jfb_feedback_anchor" value="<?php echo esc_attr( $form_anchor ); ?>">
 				<input type="hidden" name="jfb_started_at" value="<?php echo esc_attr( time() ); ?>">
 				<div class="jfb-honeypot" aria-hidden="true"><label>Website<input type="text" name="jfb_website" tabindex="-1" autocomplete="off"></label></div>
 				<?php foreach ( $form['fields'] as $field ) : $this->render_field( $field ); endforeach; ?>
@@ -92,11 +101,22 @@ final class Renderer {
 		printf( '<input id="%s" type="%s" name="%s" placeholder="%s" %s%s>', esc_attr( $id ), esc_attr( $input_type ), esc_attr( $key ), esc_attr( $field['placeholder'] ), $required ? 'required' : '', $accept );
 	}
 
-	private function render_redirect_message( string $uuid ): void {
+	private function get_redirect_message( string $uuid ): ?array {
 		$status = sanitize_key( wp_unslash( (string) ( $_GET['jfb_status'] ?? '' ) ) );
 		$form = sanitize_text_field( wp_unslash( (string) ( $_GET['jfb_form'] ?? '' ) ) );
-		if ( $form !== $uuid ) { return; }
-		if ( 'success' === $status ) { echo '<p class="jfb-success">' . esc_html__( 'Thank you. Your response has been received.', 'jplugin-formbuilder' ) . '</p>'; }
-		if ( 'error' === $status ) { echo '<p class="jfb-error">' . esc_html__( 'The response could not be submitted. Please check the form and try again.', 'jplugin-formbuilder' ) . '</p>'; }
+		if ( $form !== $uuid ) { return null; }
+		if ( 'success' === $status ) {
+			return array(
+				'class' => 'jfb-success',
+				'message' => __( 'Thank you. Your response has been received.', 'jplugin-formbuilder' ),
+			);
+		}
+		if ( 'error' === $status ) {
+			return array(
+				'class' => 'jfb-error',
+				'message' => __( 'The response could not be submitted. Please check the form and try again.', 'jplugin-formbuilder' ),
+			);
+		}
+		return null;
 	}
 }
