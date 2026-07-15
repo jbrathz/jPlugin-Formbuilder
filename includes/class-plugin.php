@@ -20,6 +20,7 @@ final class Plugin {
 		add_action( 'admin_post_jfb_download', array( $this, 'handle_download' ) );
 		add_action( 'admin_post_jfb_submission_status', array( $this, 'handle_submission_status' ) );
 		add_action( 'admin_post_jfb_purge_submission', array( $this, 'handle_purge_submission' ) );
+		add_action( 'admin_post_jfb_save_settings', array( $this, 'handle_save_settings' ) );
 		add_action( 'admin_post_jfb_turnstile_test', array( $this, 'handle_turnstile_test' ) );
 		add_action( 'jfb_daily_maintenance', array( $this->repository, 'maintenance' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( JFB_FILE ), array( $this, 'action_links' ) );
@@ -217,7 +218,41 @@ final class Plugin {
 			wp_die( esc_html__( 'Permission denied.', 'jplugin-formbuilder' ), 403 );
 		}
 		$result = Security::test_turnstile_configuration();
-		wp_safe_redirect( add_query_arg( array( 'page' => 'jfb-settings', 'jfb_test' => is_wp_error( $result ) ? 'error' : 'ok' ), admin_url( 'admin.php' ) ) ); exit;
+		$status = is_wp_error( $result ) ? 'error' : 'ok';
+		$message = is_wp_error( $result ) ? $result->get_error_message() : __( 'Cloudflare accepted the saved secret key.', 'jplugin-formbuilder' );
+		set_transient(
+			Security::turnstile_test_transient_key( get_current_user_id() ),
+			array( 'status' => $status, 'message' => $message ),
+			MINUTE_IN_SECONDS
+		);
+		wp_safe_redirect( wp_make_link_relative( add_query_arg( array( 'page' => 'jfb-settings', 'jfb_test' => $status ), admin_url( 'admin.php' ) ) ) ); exit;
+	}
+
+	public function handle_save_settings(): void {
+		if ( ! current_user_can( 'jfb_manage_settings' ) || ! check_admin_referer( 'jfb_save_settings' ) ) {
+			wp_die( esc_html__( 'Permission denied.', 'jplugin-formbuilder' ), 403 );
+		}
+
+		$input = isset( $_POST[ Settings::OPTION ] ) && is_array( $_POST[ Settings::OPTION ] )
+			? wp_unslash( $_POST[ Settings::OPTION ] )
+			: array();
+		update_option( Settings::OPTION, Settings::sanitize( $input ) );
+
+		$query = array( 'page' => 'jfb-settings', 'jfb_saved' => '1' );
+		if ( 'save_test' === sanitize_key( wp_unslash( (string) ( $_POST['jfb_intent'] ?? '' ) ) ) ) {
+			$result  = Security::test_turnstile_configuration();
+			$status  = is_wp_error( $result ) ? 'error' : 'ok';
+			$message = is_wp_error( $result ) ? $result->get_error_message() : __( 'Cloudflare accepted the saved secret key.', 'jplugin-formbuilder' );
+			set_transient(
+				Security::turnstile_test_transient_key( get_current_user_id() ),
+				array( 'status' => $status, 'message' => $message ),
+				MINUTE_IN_SECONDS
+			);
+			$query['jfb_test'] = $status;
+		}
+
+		wp_safe_redirect( wp_make_link_relative( add_query_arg( $query, admin_url( 'admin.php' ) ) ) );
+		exit;
 	}
 
 	public function action_links( array $links ): array { array_unshift( $links, '<a href="' . esc_url( admin_url( 'admin.php?page=jfb-forms' ) ) . '">' . esc_html__( 'Forms', 'jplugin-formbuilder' ) . '</a>' ); return $links; }

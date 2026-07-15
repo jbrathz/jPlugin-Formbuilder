@@ -88,14 +88,32 @@ final class Security {
 		}
 		$response = wp_remote_post( 'https://challenges.cloudflare.com/turnstile/v0/siteverify', array( 'timeout' => 8, 'body' => array( 'secret' => $secret, 'response' => 'configuration-test' ) ) );
 		if ( is_wp_error( $response ) ) {
-			return $response;
+			return new \WP_Error( 'jfb_turnstile_http', sprintf( __( 'Could not connect to Cloudflare: %s', 'jplugin-formbuilder' ), $response->get_error_message() ) );
+		}
+		$status = wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $status ) {
+			return new \WP_Error( 'jfb_turnstile_http_status', sprintf( __( 'Cloudflare returned HTTP status %d.', 'jplugin-formbuilder' ), $status ) );
 		}
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $data ) ) {
+			return new \WP_Error( 'jfb_turnstile_response', __( 'Cloudflare returned an unreadable response.', 'jplugin-formbuilder' ) );
+		}
+		if ( ! empty( $data['success'] ) ) {
+			return true;
+		}
 		$errors = (array) ( $data['error-codes'] ?? array() );
 		if ( in_array( 'invalid-input-secret', $errors, true ) || in_array( 'missing-input-secret', $errors, true ) ) {
 			return new \WP_Error( 'jfb_turnstile_secret', __( 'Cloudflare rejected the secret key.', 'jplugin-formbuilder' ) );
 		}
-		return true;
+		$response_errors = array( 'invalid-input-response', 'missing-input-response', 'timeout-or-duplicate' );
+		if ( $errors && ! array_diff( $errors, $response_errors ) ) {
+			return true;
+		}
+		return new \WP_Error( 'jfb_turnstile_api', sprintf( __( 'Cloudflare validation failed: %s', 'jplugin-formbuilder' ), implode( ', ', array_map( 'sanitize_key', $errors ?: array( 'unknown-error' ) ) ) ) );
+	}
+
+	public static function turnstile_test_transient_key( int $user_id ): string {
+		return 'jfb_turnstile_test_' . $user_id;
 	}
 
 	private static function is_cloudflare_ip( string $ip ): bool {
