@@ -40,7 +40,10 @@ final class Validator {
 				'label'       => sanitize_text_field( (string) ( $raw['label'] ?? '' ) ),
 				'help'        => sanitize_text_field( (string) ( $raw['help'] ?? '' ) ),
 				'placeholder' => sanitize_text_field( (string) ( $raw['placeholder'] ?? '' ) ),
-				'required'    => ! empty( $raw['required'] ),
+				'required'    => ! in_array( $type, array( 'heading', 'paragraph' ), true ) && ! empty( $raw['required'] ),
+				'width'       => in_array( $raw['width'] ?? '', array( 'full', 'half' ), true ) ? $raw['width'] : 'full',
+				'label_position' => in_array( $raw['label_position'] ?? '', array( 'top', 'left' ), true ) ? $raw['label_position'] : 'top',
+				'heading_style' => in_array( $raw['heading_style'] ?? '', array( 'line', 'band' ), true ) ? $raw['heading_style'] : 'line',
 			);
 
 			if ( in_array( $type, array( 'select', 'radio', 'checkbox' ), true ) ) {
@@ -49,6 +52,7 @@ final class Validator {
 					return new \WP_Error( 'jfb_choices_required', __( 'Choice fields need at least one option.', 'jplugin-formbuilder' ), array( 'status' => 400 ) );
 				}
 				$field['choices'] = $choices;
+				$field['allow_other'] = ! empty( $raw['allow_other'] );
 			}
 
 			if ( 'file' === $type ) {
@@ -64,9 +68,13 @@ final class Validator {
 
 		$settings = self::sanitize_form_settings( is_array( $input['settings'] ?? null ) ? $input['settings'] : array() );
 
+		// Slugs are internal identifiers. Always use a fixed-length ASCII value so form
+		// names may safely contain Thai, other scripts, spaces, or punctuation.
+		$slug = 'form-' . substr( hash( 'sha256', $name ), 0, 24 );
+
 		return array(
 			'name'     => $name,
-			'slug'     => sanitize_title( (string) ( $input['slug'] ?? $name ) ),
+			'slug'     => $slug,
 			'status'   => $status,
 			'fields'   => $fields,
 			'settings' => $settings,
@@ -89,7 +97,12 @@ final class Validator {
 			$value = $values[ $key ] ?? '';
 			if ( 'checkbox' === $type ) {
 				$value = is_array( $value ) ? $value : ( $value === '' ? array() : array( $value ) );
+				$other = self::sanitize_other_value( $values[ $key . '__other' ] ?? '' );
+				$has_other = in_array( '__jfb_other', $value, true );
 				$value = array_values( array_intersect( array_map( 'sanitize_text_field', $value ), $field['choices'] ?? array() ) );
+				if ( $has_other && ! empty( $field['allow_other'] ) && $other !== '' ) {
+					$value[] = sprintf( __( 'Other: %s', 'jplugin-formbuilder' ), $other );
+				}
 				if ( ! empty( $field['required'] ) && ! $value ) {
 					return self::required_error( $field );
 				}
@@ -132,9 +145,20 @@ final class Validator {
 					}
 					break;
 				case 'select':
-				case 'radio':
 					$value = sanitize_text_field( $value );
 					if ( ! in_array( $value, $field['choices'] ?? array(), true ) ) {
+						return self::invalid_error( $field );
+					}
+					break;
+				case 'radio':
+					$value = sanitize_text_field( $value );
+					if ( '__jfb_other' === $value && ! empty( $field['allow_other'] ) ) {
+						$other = self::sanitize_other_value( $values[ $key . '__other' ] ?? '' );
+						if ( $other === '' ) {
+							return self::required_error( array_merge( $field, array( 'label' => sprintf( __( 'Other detail for %s', 'jplugin-formbuilder' ), $field['label'] ) ) ) );
+						}
+						$value = sprintf( __( 'Other: %s', 'jplugin-formbuilder' ), $other );
+					} elseif ( ! in_array( $value, $field['choices'] ?? array(), true ) ) {
 						return self::invalid_error( $field );
 					}
 					break;
@@ -166,6 +190,7 @@ final class Validator {
 
 		return array(
 			'success_message' => sanitize_text_field( (string) ( $input['success_message'] ?? __( 'Thank you. Your response has been received.', 'jplugin-formbuilder' ) ) ),
+			'submit_label' => mb_substr( sanitize_text_field( (string) ( $input['submit_label'] ?? __( 'Send response', 'jplugin-formbuilder' ) ) ), 0, 120 ) ?: __( 'Send response', 'jplugin-formbuilder' ),
 			'notification_email' => sanitize_email( (string) ( $input['notification_email'] ?? get_option( 'admin_email' ) ) ),
 			'retention_days' => min( 3650, max( 0, absint( $input['retention_days'] ?? 0 ) ) ),
 			'palette' => $colors,
@@ -181,6 +206,10 @@ final class Validator {
 		return false;
 	}
 
+	private static function sanitize_other_value( mixed $value ): string {
+		return is_scalar( $value ) ? mb_substr( sanitize_text_field( trim( (string) $value ) ), 0, 1000 ) : '';
+	}
+
 	private static function required_error( array $field ): \WP_Error {
 		return new \WP_Error( 'jfb_required', sprintf( __( '%s is required.', 'jplugin-formbuilder' ), $field['label'] ?: $field['key'] ), array( 'status' => 400, 'field' => $field['key'] ) );
 	}
@@ -189,4 +218,3 @@ final class Validator {
 		return new \WP_Error( 'jfb_invalid', sprintf( __( '%s is invalid.', 'jplugin-formbuilder' ), $field['label'] ?: $field['key'] ), array( 'status' => 400, 'field' => $field['key'] ) );
 	}
 }
-

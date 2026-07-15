@@ -31,6 +31,7 @@
 .jfb-empty h3 { margin:8px 0 0; color:var(--jfb-ink); font-family:Georgia,'Times New Roman',serif; font-size:22px; }
 .jfb-builder-toolbar { position:sticky; z-index:10; top:32px; display:flex; align-items:center; gap:16px; margin-bottom:16px; padding:12px 16px; background:rgba(251,250,246,.96); border:1px solid var(--jfb-line); border-radius:12px; backdrop-filter:blur(12px); }
 .jfb-builder-toolbar a { margin-right:auto; }
+.jfb-embed-actions { display:flex; flex-wrap:wrap; gap:6px; }
 .jfb-save-state { color:#587069; font-size:12px; font-weight:700; }
 .jfb-save-state.is-dirty { color:#a64f08; }
 .jfb-builder-grid { display:grid; grid-template-columns:290px minmax(360px,1fr) minmax(260px,.75fr); gap:18px; align-items:start; }
@@ -78,5 +79,5 @@
 .jfb-toast.is-error { background:#9f2d25; }
 @media (max-width:1100px) { .jfb-template-grid { grid-template-columns:1fr 1fr; } .jfb-builder-grid { grid-template-columns:270px 1fr; } .jfb-preview-panel { grid-column:1/-1; } }
 @media (max-width:782px) { .jfb-admin-header { margin-right:10px; border-radius:18px 4px; } .jfb-template-grid,.jfb-builder-grid,.jfb-inbox-grid,.jfb-settings-grid { grid-template-columns:1fr; } .jfb-builder-controls,.jfb-submission-detail { position:static; max-height:none; } .jfb-form-row,.jfb-submission-row { grid-template-columns:1fr auto; } .jfb-form-row time,.jfb-form-row > .dashicons,.jfb-submission-row time { grid-column:1/-1; } .jfb-field-card-grid { grid-template-columns:1fr; } .jfb-data-panel,.jfb-settings-grid .submit { grid-column:auto; } }
-@media (max-width:480px) { .jfb-template-grid { grid-template-columns:1fr; } .jfb-admin-header { padding:22px 18px; } .jfb-version { display:none; } .jfb-builder-toolbar { top:46px; flex-wrap:wrap; } .jfb-builder-toolbar a { width:100%; } .jfb-field-actions { width:100%; } .jfb-field-card-bar { align-items:flex-start; flex-wrap:wrap; } }
+@media (max-width:480px) { .jfb-template-grid { grid-template-columns:1fr; } .jfb-admin-header { padding:22px 18px; } .jfb-version { display:none; } .jfb-builder-toolbar { top:46px; flex-wrap:wrap; } .jfb-builder-toolbar a,.jfb-embed-actions { width:100%; } .jfb-embed-actions .button { flex:1; } .jfb-field-actions { width:100%; } .jfb-field-card-bar { align-items:flex-start; flex-wrap:wrap; } }
 @media (prefers-reduced-motion:reduce) { .jfb-admin-wrap * { transition:none !important; } }

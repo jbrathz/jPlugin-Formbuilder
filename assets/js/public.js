@@ -2,6 +2,13 @@
 	'use strict';
 
 	document.querySelectorAll( '[data-jfb-form] form[data-endpoint]' ).forEach( function ( form ) {
+		form.querySelectorAll( '[data-jfb-other-input]' ).forEach( function ( input ) {
+			const wrapper = input.closest( '.jfb-choice-other' );
+			const choice = wrapper.querySelector( 'input[type="radio"], input[type="checkbox"]' );
+			const sync = function () { input.disabled = ! choice.checked; if ( ! choice.checked ) input.value = ''; };
+			wrapper.closest( 'fieldset' ).querySelectorAll( 'input[name="' + choice.name + '"]' ).forEach( function ( option ) { option.addEventListener( 'change', sync ); } );
+			sync();
+		} );
 		form.addEventListener( 'submit', async function ( event ) {
 			if ( ! window.fetch || ! form.reportValidity() ) {
 				return;
@@ -42,4 +49,3 @@
 		} );
 	} );
 } )();
-
