@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "jplugin-formbuilder/form",
+  "version": "1.0.0",
+  "title": "jPlugin Form",
+  "category": "widgets",
+  "icon": "feedback",
+  "description": "Embed a published jPlugin Formbuilder form.",
+  "textdomain": "jplugin-formbuilder",
+  "attributes": {
+    "formId": { "type": "string", "default": "" }
+  },
+  "editorScript": "file:./editor.js",
+  "style": "jfb-public"
+}
+
