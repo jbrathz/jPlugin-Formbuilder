@@ -7,11 +7,11 @@
 		}
 
 		const shell = feedback.closest( '[data-jfb-form]' );
-		const header = shell ? shell.querySelector( '[data-jfb-form-header]' ) : null;
+		const title = shell ? shell.querySelector( '[data-jfb-form-title]' ) : null;
 
-		if ( header ) {
-			header.focus( { preventScroll: true } );
-			header.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+		if ( title ) {
+			title.focus( { preventScroll: true } );
+			title.scrollIntoView( { behavior: 'smooth', block: 'start' } );
 			return;
 		}
 

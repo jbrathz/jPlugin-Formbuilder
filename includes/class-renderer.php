@@ -34,6 +34,7 @@ final class Renderer {
 		}
 
 		$form_anchor = 'jfb-form-' . substr( str_replace( '-', '', $uuid ), 0, 12 );
+		$form_title_id = $form_anchor . '-title';
 		$feedback_id = 'jfb-feedback-' . substr( str_replace( '-', '', $uuid ), 0, 12 );
 		$redirect_message = $this->get_redirect_message( $uuid );
 		$feedback_class = 'jfb-form-feedback';
@@ -44,12 +45,12 @@ final class Renderer {
 		ob_start();
 		?>
 		<section id="<?php echo esc_attr( $form_anchor ); ?>" class="jfb-form-shell" style="<?php echo esc_attr( $style ); ?>" data-jfb-form>
-			<header class="jfb-form-header" tabindex="-1" data-jfb-form-header><?php if ( ! array_key_exists( 'show_eyebrow', $form['settings'] ) || ! empty( $form['settings']['show_eyebrow'] ) ) : ?><span class="jfb-eyebrow"><?php echo esc_html( $form['settings']['eyebrow_text'] ?? __( 'Secure form', 'jplugin-formbuilder' ) ); ?></span><?php endif; ?><h2><?php echo esc_html( $form['name'] ); ?></h2></header>
+			<header class="jfb-form-header" data-jfb-form-header><?php if ( ! array_key_exists( 'show_eyebrow', $form['settings'] ) || ! empty( $form['settings']['show_eyebrow'] ) ) : ?><span class="jfb-eyebrow"><?php echo esc_html( $form['settings']['eyebrow_text'] ?? __( 'Secure form', 'jplugin-formbuilder' ) ); ?></span><?php endif; ?><h2 id="<?php echo esc_attr( $form_title_id ); ?>" tabindex="-1" data-jfb-form-title><?php echo esc_html( $form['name'] ); ?></h2></header>
 			<div id="<?php echo esc_attr( $feedback_id ); ?>" class="<?php echo esc_attr( $feedback_class ); ?>" role="status" aria-live="polite" tabindex="-1" data-jfb-form-feedback><?php if ( $redirect_message ) { echo esc_html( $redirect_message['message'] ); } ?></div>
 			<form class="jfb-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-endpoint="<?php echo esc_url( wp_make_link_relative( rest_url( 'jplugin-formbuilder/v1/forms/' . $uuid . '/submissions' ) ) ); ?>">
 				<input type="hidden" name="action" value="jfb_submit">
 				<input type="hidden" name="jfb_form_uuid" value="<?php echo esc_attr( $uuid ); ?>">
-				<input type="hidden" name="jfb_feedback_anchor" value="<?php echo esc_attr( $form_anchor ); ?>">
+				<input type="hidden" name="jfb_feedback_anchor" value="<?php echo esc_attr( $form_title_id ); ?>">
 				<input type="hidden" name="jfb_started_at" value="<?php echo esc_attr( time() ); ?>">
 				<div class="jfb-honeypot" aria-hidden="true"><label>Website<input type="text" name="jfb_website" tabindex="-1" autocomplete="off"></label></div>
 				<?php foreach ( $form['fields'] as $field ) : $this->render_field( $field ); endforeach; ?>

@@ -3,7 +3,7 @@
  * Plugin Name:       jPlugin Formbuilder
  * Plugin URI:        https://example.com/jplugin-formbuilder
  * Description:       Secure, theme-adaptive forms with a visual builder, private uploads, Cloudflare Turnstile, and a standalone submission inbox.
- * Version:           1.0.16
+ * Version:           1.0.17
  * Requires at least: 6.6
  * Requires PHP:      8.1
  * Author:            Jirath
@@ -15,9 +15,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$plugin_data = function_exists( 'get_file_data' ) ? get_file_data( __FILE__, array( 'Version' => 'Version' ), 'plugin' ) : array( 'Version' => '1.0.16' );
+$plugin_data = function_exists( 'get_file_data' ) ? get_file_data( __FILE__, array( 'Version' => 'Version' ), 'plugin' ) : array( 'Version' => '1.0.17' );
 
-define( 'JFB_VERSION', (string) ( $plugin_data['Version'] ?? '1.0.16' ) );
+define( 'JFB_VERSION', (string) ( $plugin_data['Version'] ?? '1.0.17' ) );
 define( 'JFB_FILE', __FILE__ );
 define( 'JFB_PATH', plugin_dir_path( __FILE__ ) );
 define( 'JFB_URL', plugin_dir_url( __FILE__ ) );
