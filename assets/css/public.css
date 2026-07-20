@@ -6,7 +6,8 @@
 	--jfb-border: #c9d8d3;
 	--jfb-error: #b42318;
 	box-sizing: border-box;
-	width: min(100%, 760px);
+	width: 100%;
+	max-width: none;
 	margin: clamp(1rem, 4vw, 3rem) auto;
 	padding: clamp(1.25rem, 4vw, 3rem);
 	color: var(--jfb-text);
@@ -14,11 +15,13 @@
 	border: 1px solid var(--jfb-border);
 	border-radius: 22px 6px 22px 6px;
 	box-shadow: 0 24px 70px color-mix(in srgb, var(--jfb-text) 10%, transparent);
-	font: inherit;
+	font-family: inherit;
+	font-size: 16px;
+	line-height: 1.5;
 }
 .jfb-form-shell *, .jfb-form-shell *::before, .jfb-form-shell *::after { box-sizing: border-box; }
 .jfb-form-header { margin-block-end: 2rem; padding-inline-start: 1rem; border-inline-start: 4px solid var(--jfb-accent); }
-.jfb-form-header h2 { margin: .2rem 0 0; color: var(--jfb-text); font: inherit; font-size: clamp(1.65rem, 5vw, 2.6rem); font-weight: 700; line-height: 1.1; }
+.jfb-form-header h2 { margin: .2rem 0 0; color: var(--jfb-text); font: inherit; font-size: clamp(1.4rem, 2vw, 1.5rem); font-weight: 700; line-height: 1.2; }
 .jfb-eyebrow { color: var(--jfb-primary); font-size: .75rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
 .jfb-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
 .jfb-field { display: grid; gap: .45rem; }
@@ -43,7 +46,7 @@
 .jfb-choice-other .jfb-other-input { min-height: 42px; padding: .65rem .8rem; color: var(--jfb-text); background: var(--jfb-background); border: 1px solid var(--jfb-border); border-radius: 8px; font: inherit; }
 .jfb-choice-other .jfb-other-input:disabled { opacity: .55; cursor: not-allowed; }
 .jfb-copy { margin: 0; }
-.jfb-submit { display: inline-flex; justify-content: space-between; align-items: center; gap: 2rem; min-height: 50px; margin-block-start: .5rem; padding: .75rem 1.1rem; color: #fff; background: var(--jfb-primary); border: 2px solid var(--jfb-primary); border-radius: 9px; font: inherit; font-weight: 700; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
+.jfb-submit { display: inline-flex; justify-self: start; justify-content: space-between; align-items: center; gap: 2rem; width: auto; min-height: 50px; margin-block-start: .5rem; padding: .75rem 1.1rem; color: #fff; background: var(--jfb-primary); border: 2px solid var(--jfb-primary); border-radius: 9px; font: inherit; font-weight: 700; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
 .jfb-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 25px color-mix(in srgb, var(--jfb-primary) 25%, transparent); }
 .jfb-submit:focus-visible { outline: 3px solid var(--jfb-accent); outline-offset: 3px; }
 .jfb-submit:disabled { opacity: .65; cursor: wait; }
@@ -54,5 +57,5 @@
 .jfb-error { color: var(--jfb-error); background: #fef3f2; border: 1px solid #fecdca; }
 .jfb-notice { padding: 1rem; border: 1px dashed currentColor; }
 @media (max-width: 640px) { .jfb-form { grid-template-columns: 1fr; } .jfb-width--half { grid-column: 1; } .jfb-label--left { grid-template-columns: 1fr; gap: .45rem; } .jfb-label--left > label { padding-top: 0; } .jfb-label--left > small { grid-column: auto; } .jfb-choice-other { grid-template-columns: 1fr; gap: .4rem; } }
-@media (max-width: 480px) { .jfb-form-shell { border-radius: 14px 4px; } .jfb-submit { width: 100%; } }
+@media (max-width: 480px) { .jfb-form-shell { border-radius: 14px 4px; } }
 @media (prefers-reduced-motion: reduce) { .jfb-form-shell *, .jfb-form-shell *::before, .jfb-form-shell *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
