@@ -83,7 +83,8 @@ final class Renderer {
 		if ( 'textarea' === $type ) { printf( '<textarea id="%s" name="%s" placeholder="%s" %s %s></textarea>', esc_attr( $id ), esc_attr( $key ), esc_attr( $field['placeholder'] ), $required ? 'required' : '', $desc ? 'aria-describedby="' . esc_attr( $desc ) . '"' : '' ); return; }
 		if ( 'select' === $type ) { echo '<select id="' . esc_attr( $id ) . '" name="' . esc_attr( $key ) . '" ' . ( $required ? 'required' : '' ) . '><option value="">' . esc_html__( 'Choose an option', 'jplugin-formbuilder' ) . '</option>'; foreach ( $field['choices'] as $choice ) { echo '<option value="' . esc_attr( $choice ) . '">' . esc_html( $choice ) . '</option>'; } echo '</select>'; return; }
 		if ( in_array( $type, array( 'radio', 'checkbox' ), true ) ) {
-			echo '<fieldset><legend>' . esc_html( $field['label'] ) . ( $required ? '<span class="jfb-required" aria-hidden="true">*</span>' : '' ) . '</legend>';
+			$legend = esc_html( $field['label'] ) . ( $required ? '<span class="jfb-required" aria-hidden="true">*</span>' : '' );
+			echo '<fieldset><legend class="jfb-visually-hidden">' . $legend . '</legend><div class="jfb-choice-layout"><span class="jfb-choice-heading" aria-hidden="true">' . $legend . '</span><div class="jfb-choice-list">';
 			foreach ( $field['choices'] as $i => $choice ) {
 				$choice_id = $id . '-' . $i;
 				printf( '<label class="jfb-choice" for="%1$s"><input id="%1$s" type="%2$s" name="%3$s" value="%4$s" %5$s><span>%6$s</span></label>', esc_attr( $choice_id ), esc_attr( $type ), esc_attr( 'checkbox' === $type ? $key . '[]' : $key ), esc_attr( $choice ), $required && 0 === $i ? 'required' : '', esc_html( $choice ) );
@@ -92,7 +93,7 @@ final class Renderer {
 				$other_id = $id . '-other';
 				printf( '<div class="jfb-choice-other"><label class="jfb-choice" for="%1$s"><input id="%1$s" type="%2$s" name="%3$s" value="__jfb_other"><span>%4$s</span></label><input class="jfb-other-input" type="text" name="%5$s" placeholder="%6$s" data-jfb-other-input></div>', esc_attr( $other_id ), esc_attr( $type ), esc_attr( 'checkbox' === $type ? $key . '[]' : $key ), esc_html__( 'Other (please specify)', 'jplugin-formbuilder' ), esc_attr( $key . '__other' ), esc_attr__( 'Please specify', 'jplugin-formbuilder' ) );
 			}
-			echo '</fieldset>';
+			echo '</div></div></fieldset>';
 			return;
 		}
 		if ( 'consent' === $type ) { printf( '<label class="jfb-choice" for="%1$s"><input id="%1$s" type="checkbox" name="%2$s" value="1" %3$s><span>%4$s</span></label>', esc_attr( $id ), esc_attr( $key ), $required ? 'required' : '', esc_html( $field['label'] ) ); return; }
