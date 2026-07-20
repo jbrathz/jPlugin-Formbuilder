@@ -40,7 +40,7 @@
 .jfb-choice { display: flex; align-items: flex-start; gap: .7rem; width: fit-content; font-weight: 400 !important; cursor: pointer; }
 .jfb-choice input { width: 1.15rem; height: 1.15rem; margin-top: .18rem; accent-color: var(--jfb-primary); }
 .jfb-required { margin-inline-start: .2rem; color: var(--jfb-error); }
-.jfb-section-title { margin: .8rem 0 0; padding-block-end: .5rem; border-block-end: 1px solid var(--jfb-border); }
+.jfb-section-title { margin: .8rem 0 0; padding-block-end: .5rem; border-block-end: 1px solid var(--jfb-border); font-size: 18px; }
 .jfb-section-title--band { padding: .6rem 1rem; color: var(--jfb-text); background: color-mix(in srgb, var(--jfb-text) 16%, var(--jfb-background)); border: 0; text-align: center; }
 .jfb-choice-other { display: grid; grid-template-columns: minmax(0, auto) minmax(10rem, 1fr); align-items: center; gap: .75rem; }
 .jfb-choice-other .jfb-other-input { min-height: 42px; padding: .65rem .8rem; color: var(--jfb-text); background: var(--jfb-background); border: 1px solid var(--jfb-border); border-radius: 8px; font: inherit; }
