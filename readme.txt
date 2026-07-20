@@ -4,7 +4,7 @@ Tags: forms, contact form, survey, turnstile, private upload
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.10
+Stable tag: 1.0.18
 License: GPLv2 or later
 
 Secure, theme-adaptive WordPress forms with a visual builder, private uploads, Cloudflare Turnstile, and a standalone submission inbox.
@@ -20,7 +20,8 @@ Features:
 * Dynamic Gutenberg block and `[jplugin_form id="UUID"]` shortcode.
 * Cloudflare Turnstile, honeypot, timing checks, and hashed-IP rate limiting.
 * Private uploads with MIME/content checks and a direct-access Site Health test.
-* Submission inbox, retention, trash, secure download, email notification, and CSV export.
+* Filterable, paginated submission inbox with date- and form-scoped CSV export.
+* Retention, trash, secure download, and email notification.
 * Theme-adaptive CSS variables and per-form color palette.
 
 == Installation ==
@@ -65,6 +66,10 @@ The following WordPress options/transients may also be removed:
 Private files are stored in `JFB_PRIVATE_UPLOAD_DIR` when defined, otherwise in `wp-content/jfb-private`. Remove this directory manually only after confirming that retained submissions no longer need their files.
 
 == Changelog ==
+
+= 1.0.18 =
+* Added form and date-range filters to the submission inbox, defaulting to the current month.
+* Added 20-item pagination and CSV exports scoped to the selected filters.
 
 = 1.0.0 =
 * Initial secure standalone release.

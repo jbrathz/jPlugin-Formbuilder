@@ -97,25 +97,23 @@ final class Repository {
 		global $wpdb;
 		$subs  = Database::table( 'submissions' );
 		$forms = Database::table( 'forms' );
-		$where = array( '1=1' );
-		$args  = array();
-		if ( ! empty( $filters['form_id'] ) ) {
-			$where[] = 's.form_id = %d';
-			$args[]  = absint( $filters['form_id'] );
-		}
-		if ( ! empty( $filters['status'] ) && in_array( $filters['status'], array( 'new', 'read', 'trash' ), true ) ) {
-			$where[] = 's.status = %s';
-			$args[]  = $filters['status'];
-		} else {
-			$where[] = "s.status <> 'trash'";
-		}
+		[ $where, $args ] = $this->submission_where( $filters );
 		$limit = array_key_exists( 'limit', $filters ) ? absint( $filters['limit'] ) : 200;
+		$offset = ! empty( $filters['offset'] ) ? absint( $filters['offset'] ) : 0;
 		$sql = "SELECT s.*, f.name AS form_name FROM {$subs} s LEFT JOIN {$forms} f ON f.id=s.form_id WHERE " . implode( ' AND ', $where ) . ' ORDER BY s.created_at DESC';
 		if ( $limit ) {
-			$sql .= ' LIMIT ' . $limit;
+			$sql .= ' LIMIT ' . $limit . ' OFFSET ' . $offset;
 		}
 		$rows = $args ? $wpdb->get_results( $wpdb->prepare( $sql, ...$args ), ARRAY_A ) : $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		return array_map( array( $this, 'hydrate_submission' ), $rows ?: array() );
+	}
+
+	public function count_submissions( array $filters = array() ): int {
+		global $wpdb;
+		$subs = Database::table( 'submissions' );
+		[ $where, $args ] = $this->submission_where( $filters );
+		$sql = "SELECT COUNT(*) FROM {$subs} s WHERE " . implode( ' AND ', $where );
+		return (int) ( $args ? $wpdb->get_var( $wpdb->prepare( $sql, ...$args ) ) : $wpdb->get_var( $sql ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 	}
 
 	public function get_submission( string $uuid ): ?array {
@@ -187,5 +185,31 @@ final class Repository {
 		$row['fields'] = $schema['fields'] ?? array();
 		unset( $row['payload_json'], $row['schema_snapshot_json'], $row['ip_hash'] );
 		return $row;
+	}
+
+	private function submission_where( array $filters ): array {
+		$where = array( '1=1' );
+		$args  = array();
+
+		if ( ! empty( $filters['form_id'] ) ) {
+			$where[] = 's.form_id = %d';
+			$args[]  = absint( $filters['form_id'] );
+		}
+		if ( ! empty( $filters['status'] ) && in_array( $filters['status'], array( 'new', 'read', 'trash' ), true ) ) {
+			$where[] = 's.status = %s';
+			$args[]  = $filters['status'];
+		} else {
+			$where[] = "s.status <> 'trash'";
+		}
+		if ( ! empty( $filters['date_from'] ) ) {
+			$where[] = 's.created_at >= %s';
+			$args[]  = $filters['date_from'];
+		}
+		if ( ! empty( $filters['date_to'] ) ) {
+			$where[] = 's.created_at <= %s';
+			$args[]  = $filters['date_to'];
+		}
+
+		return array( $where, $args );
 	}
 }

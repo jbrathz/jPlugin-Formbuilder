@@ -78,17 +78,74 @@ final class Admin {
 
 	public function inbox_page(): void {
 		$this->guard( 'jfb_view_submissions' );
-		$uuid = sanitize_text_field( wp_unslash( (string) ( $_GET['submission'] ?? '' ) ) );
+		$uuid           = sanitize_text_field( wp_unslash( (string) ( $_GET['submission'] ?? '' ) ) );
 		$current_status = sanitize_key( wp_unslash( (string) ( $_GET['status'] ?? '' ) ) );
-		$items = $this->repository->list_submissions( array( 'status' => $current_status ) );
+		$current_status = 'trash' === $current_status ? 'trash' : '';
+		$form_id        = absint( wp_unslash( (string) ( $_GET['form_id'] ?? '0' ) ) );
+		$date_from      = $this->valid_date( wp_unslash( (string) ( $_GET['date_from'] ?? '' ) ) ) ?: wp_date( 'Y-m-01' );
+		$date_to        = $this->valid_date( wp_unslash( (string) ( $_GET['date_to'] ?? '' ) ) ) ?: wp_date( 'Y-m-t' );
+		if ( $date_from > $date_to ) {
+			[ $date_from, $date_to ] = array( $date_to, $date_from );
+		}
+		$forms          = $this->repository->list_forms();
+		$per_page       = 20;
+		$paged          = max( 1, absint( wp_unslash( (string) ( $_GET['paged'] ?? '1' ) ) ) );
+		$filters        = array(
+			'status'    => $current_status,
+			'form_id'   => $form_id,
+			'date_from' => $this->date_boundary_utc( $date_from, false ),
+			'date_to'   => $this->date_boundary_utc( $date_to, true ),
+		);
+		$total_items    = $this->repository->count_submissions( $filters );
+		$total_pages    = max( 1, (int) ceil( $total_items / $per_page ) );
+		$paged          = min( $paged, $total_pages );
+		$items          = $this->repository->list_submissions( $filters + array( 'limit' => $per_page, 'offset' => ( $paged - 1 ) * $per_page ) );
+		$filter_args    = array_filter(
+			array( 'status' => $current_status, 'form_id' => $form_id, 'date_from' => $date_from, 'date_to' => $date_to ),
+			static fn( mixed $value ): bool => '' !== (string) $value && 0 !== $value
+		);
+		$inbox_url      = add_query_arg( array_merge( array( 'page' => 'jfb-inbox' ), array_diff_key( $filter_args, array( 'status' => true ) ) ), admin_url( 'admin.php' ) );
+		$trash_url      = add_query_arg( array_merge( array( 'page' => 'jfb-inbox', 'status' => 'trash' ), array_diff_key( $filter_args, array( 'status' => true ) ) ), admin_url( 'admin.php' ) );
+		$export_url     = wp_nonce_url( add_query_arg( array_merge( array( 'action' => 'jfb_export' ), array_diff_key( $filter_args, array( 'status' => true ) ) ), admin_url( 'admin-post.php' ) ), 'jfb_export' );
 		?>
 		<div class="wrap jfb-admin-wrap"><?php $this->masthead( __( 'Submission inbox', 'jplugin-formbuilder' ), __( 'Review responses in WordPress. Sensitive values never travel in notification emails.', 'jplugin-formbuilder' ) ); ?>
-			<nav class="nav-tab-wrapper"><a class="nav-tab <?php echo 'trash' !== $current_status ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( admin_url( 'admin.php?page=jfb-inbox' ) ); ?>"><?php esc_html_e( 'Inbox', 'jplugin-formbuilder' ); ?></a><a class="nav-tab <?php echo 'trash' === $current_status ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( admin_url( 'admin.php?page=jfb-inbox&status=trash' ) ); ?>"><?php esc_html_e( 'Trash', 'jplugin-formbuilder' ); ?></a></nav>
-			<div class="jfb-inbox-grid"><section class="jfb-panel"><div class="jfb-panel-heading"><h2><?php esc_html_e( 'Responses', 'jplugin-formbuilder' ); ?></h2><?php if ( current_user_can( 'jfb_export_submissions' ) && 'trash' !== $current_status ) : ?><a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=jfb_export' ), 'jfb_export' ) ); ?>"><?php esc_html_e( 'Export CSV', 'jplugin-formbuilder' ); ?></a><?php endif; ?></div>
-			<?php if ( ! $items ) : ?><div class="jfb-empty"><h3><?php esc_html_e( 'Inbox zero', 'jplugin-formbuilder' ); ?></h3><p><?php esc_html_e( 'New responses will appear here.', 'jplugin-formbuilder' ); ?></p></div><?php else : ?><div class="jfb-submission-list"><?php foreach ( $items as $item ) : ?><a href="<?php echo esc_url( add_query_arg( array( 'page' => 'jfb-inbox', 'submission' => $item['uuid'] ), admin_url( 'admin.php' ) ) ); ?>" class="jfb-submission-row <?php echo $uuid === $item['uuid'] ? 'is-active' : ''; ?>"><span><strong><?php echo esc_html( $item['form_name'] ?: __( 'Deleted form', 'jplugin-formbuilder' ) ); ?></strong><small><?php echo esc_html( $item['uuid'] ); ?></small></span><span class="jfb-status jfb-status--<?php echo esc_attr( $item['status'] ); ?>"><?php echo esc_html( ucfirst( $item['status'] ) ); ?></span><time><?php echo esc_html( get_date_from_gmt( $item['created_at'], 'd M Y H:i' ) ); ?></time></a><?php endforeach; ?></div><?php endif; ?></section>
+			<nav class="nav-tab-wrapper"><a class="nav-tab <?php echo 'trash' !== $current_status ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( $inbox_url ); ?>"><?php esc_html_e( 'Inbox', 'jplugin-formbuilder' ); ?></a><a class="nav-tab <?php echo 'trash' === $current_status ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( $trash_url ); ?>"><?php esc_html_e( 'Trash', 'jplugin-formbuilder' ); ?></a></nav>
+			<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="jfb-panel jfb-inbox-filters">
+				<input type="hidden" name="page" value="jfb-inbox">
+				<?php if ( 'trash' === $current_status ) : ?><input type="hidden" name="status" value="trash"><?php endif; ?>
+				<label><?php esc_html_e( 'Form', 'jplugin-formbuilder' ); ?><select name="form_id"><option value="0"><?php esc_html_e( 'All forms', 'jplugin-formbuilder' ); ?></option><?php foreach ( $forms as $form ) : ?><option value="<?php echo esc_attr( $form['id'] ); ?>" <?php selected( $form_id, $form['id'] ); ?>><?php echo esc_html( $form['name'] ); ?></option><?php endforeach; ?></select></label>
+				<label><?php esc_html_e( 'From date', 'jplugin-formbuilder' ); ?><input type="date" name="date_from" value="<?php echo esc_attr( $date_from ); ?>"></label>
+				<label><?php esc_html_e( 'To date', 'jplugin-formbuilder' ); ?><input type="date" name="date_to" value="<?php echo esc_attr( $date_to ); ?>"></label>
+				<div class="jfb-filter-actions"><button type="submit" class="button button-primary"><?php esc_html_e( 'Apply filters', 'jplugin-formbuilder' ); ?></button><a class="button" href="<?php echo esc_url( 'trash' === $current_status ? admin_url( 'admin.php?page=jfb-inbox&status=trash' ) : admin_url( 'admin.php?page=jfb-inbox' ) ); ?>"><?php esc_html_e( 'Current month', 'jplugin-formbuilder' ); ?></a></div>
+			</form>
+			<div class="jfb-inbox-grid"><section class="jfb-panel"><div class="jfb-panel-heading"><div><h2><?php esc_html_e( 'Responses', 'jplugin-formbuilder' ); ?></h2><small><?php echo esc_html( sprintf( _n( '%d response found', '%d responses found', $total_items, 'jplugin-formbuilder' ), $total_items ) ); ?></small></div><?php if ( current_user_can( 'jfb_export_submissions' ) && 'trash' !== $current_status ) : ?><a class="button" href="<?php echo esc_url( $export_url ); ?>"><?php esc_html_e( 'Export selected CSV', 'jplugin-formbuilder' ); ?></a><?php endif; ?></div>
+			<?php if ( ! $items ) : ?><div class="jfb-empty"><h3><?php esc_html_e( 'No responses found', 'jplugin-formbuilder' ); ?></h3><p><?php esc_html_e( 'Try another form or date range.', 'jplugin-formbuilder' ); ?></p></div><?php else : ?><div class="jfb-submission-list"><?php foreach ( $items as $item ) : ?><a href="<?php echo esc_url( add_query_arg( array_merge( array( 'page' => 'jfb-inbox', 'submission' => $item['uuid'], 'paged' => $paged ), $filter_args ), admin_url( 'admin.php' ) ) ); ?>" class="jfb-submission-row <?php echo $uuid === $item['uuid'] ? 'is-active' : ''; ?>"><span><strong><?php echo esc_html( $item['form_name'] ?: __( 'Deleted form', 'jplugin-formbuilder' ) ); ?></strong><small><?php echo esc_html( $item['uuid'] ); ?></small></span><span class="jfb-status jfb-status--<?php echo esc_attr( $item['status'] ); ?>"><?php echo esc_html( ucfirst( $item['status'] ) ); ?></span><time><?php echo esc_html( get_date_from_gmt( $item['created_at'], 'd M Y H:i' ) ); ?></time></a><?php endforeach; ?></div><?php $this->inbox_pagination( $paged, $total_pages, $filter_args ); ?><?php endif; ?></section>
 			<aside class="jfb-panel jfb-submission-detail"><?php $this->submission_detail( $uuid ); ?></aside></div>
 		</div>
 		<?php
+	}
+
+	private function inbox_pagination( int $paged, int $total_pages, array $filter_args ): void {
+		if ( $total_pages < 2 ) {
+			return;
+		}
+		$url  = add_query_arg( array_merge( array( 'page' => 'jfb-inbox' ), $filter_args ), admin_url( 'admin.php' ) );
+		$base = str_replace( '999999999', '%#%', add_query_arg( 'paged', 999999999, $url ) );
+		echo '<nav class="jfb-pagination" aria-label="' . esc_attr__( 'Response pages', 'jplugin-formbuilder' ) . '">';
+		echo wp_kses_post( paginate_links( array( 'base' => $base, 'format' => '', 'current' => $paged, 'total' => $total_pages, 'type' => 'list', 'prev_text' => '&lsaquo;', 'next_text' => '&rsaquo;' ) ) );
+		echo '</nav>';
+	}
+
+	private function valid_date( string $date ): string {
+		$date = sanitize_text_field( $date );
+		$value = \DateTimeImmutable::createFromFormat( '!Y-m-d', $date, wp_timezone() );
+		return $value && $value->format( 'Y-m-d' ) === $date ? $date : '';
+	}
+
+	private function date_boundary_utc( string $date, bool $end_of_day ): string {
+		$value = new \DateTimeImmutable( $date, wp_timezone() );
+		$value = $end_of_day ? $value->setTime( 23, 59, 59 ) : $value->setTime( 0, 0, 0 );
+		return $value->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
 	}
 
 	private function submission_detail( string $uuid ): void {

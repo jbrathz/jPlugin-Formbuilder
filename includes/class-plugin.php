@@ -96,10 +96,23 @@ final class Plugin {
 		if ( ! current_user_can( 'jfb_export_submissions' ) || ! check_admin_referer( 'jfb_export' ) ) {
 			wp_die( esc_html__( 'You do not have permission to export submissions.', 'jplugin-formbuilder' ), 403 );
 		}
-		$items = $this->repository->list_submissions( array( 'limit' => 0 ) );
+		$form_id   = absint( wp_unslash( (string) ( $_GET['form_id'] ?? '0' ) ) );
+		$date_from = $this->valid_export_date( wp_unslash( (string) ( $_GET['date_from'] ?? '' ) ) ) ?: wp_date( 'Y-m-01' );
+		$date_to   = $this->valid_export_date( wp_unslash( (string) ( $_GET['date_to'] ?? '' ) ) ) ?: wp_date( 'Y-m-t' );
+		if ( $date_from > $date_to ) {
+			[ $date_from, $date_to ] = array( $date_to, $date_from );
+		}
+		$items     = $this->repository->list_submissions(
+			array(
+				'form_id'   => $form_id,
+				'date_from' => $this->export_date_boundary_utc( $date_from, false ),
+				'date_to'   => $this->export_date_boundary_utc( $date_to, true ),
+				'limit'     => 0,
+			)
+		);
 		nocache_headers();
 		header( 'Content-Type: text/csv; charset=utf-8' );
-		header( 'Content-Disposition: attachment; filename="jfb-submissions-' . gmdate( 'Y-m-d' ) . '.csv"' );
+		header( 'Content-Disposition: attachment; filename="jfb-submissions-' . $date_from . '-to-' . $date_to . '.csv"' );
 		header( 'X-Content-Type-Options: nosniff' );
 		$out = fopen( 'php://output', 'wb' );
 		fwrite( $out, "\xEF\xBB\xBF" );
@@ -135,6 +148,18 @@ final class Plugin {
 			fputcsv( $out, $row );
 		}
 		fclose( $out ); exit;
+	}
+
+	private function valid_export_date( string $date ): string {
+		$date = sanitize_text_field( $date );
+		$value = \DateTimeImmutable::createFromFormat( '!Y-m-d', $date, wp_timezone() );
+		return $value && $value->format( 'Y-m-d' ) === $date ? $date : '';
+	}
+
+	private function export_date_boundary_utc( string $date, bool $end_of_day ): string {
+		$value = new \DateTimeImmutable( $date, wp_timezone() );
+		$value = $end_of_day ? $value->setTime( 23, 59, 59 ) : $value->setTime( 0, 0, 0 );
+		return $value->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
 	}
 
 	private function export_field_columns( array $items ): array {

@@ -3,7 +3,7 @@
 namespace JFB;
 
 final class Database {
-	public const SCHEMA_VERSION = '1.0.0';
+	public const SCHEMA_VERSION = '1.0.1';
 
 	public static function table( string $name ): string {
 		global $wpdb;
@@ -59,6 +59,7 @@ final class Database {
 				PRIMARY KEY  (id),
 				UNIQUE KEY uuid (uuid),
 				KEY form_status_date (form_id,status,created_at),
+				KEY created_at (created_at),
 				KEY expires_at (expires_at),
 				KEY deleted_at (deleted_at)
 			) {$charset};",
@@ -95,4 +96,3 @@ final class Database {
 		update_option( 'jfb_schema_version', self::SCHEMA_VERSION, false );
 	}
 }
-
