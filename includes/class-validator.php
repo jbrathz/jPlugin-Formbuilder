@@ -66,7 +66,10 @@ final class Validator {
 			return new \WP_Error( 'jfb_vault_unprotected', __( 'This form cannot be published until private upload storage is protected.', 'jplugin-formbuilder' ), array( 'status' => 409 ) );
 		}
 
-		$settings = self::sanitize_form_settings( is_array( $input['settings'] ?? null ) ? $input['settings'] : array() );
+		$settings = self::sanitize_form_settings( is_array( $input['settings'] ?? null ) ? $input['settings'] : array(), $fields );
+		if ( is_wp_error( $settings ) ) {
+			return $settings;
+		}
 
 		// Slugs are internal identifiers. Always use a fixed-length ASCII value so form
 		// names may safely contain Thai, other scripts, spaces, or punctuation.
@@ -180,7 +183,7 @@ final class Validator {
 		return $clean;
 	}
 
-	private static function sanitize_form_settings( array $input ): array {
+	private static function sanitize_form_settings( array $input, array $fields ): array|\WP_Error {
 		$colors = Settings::default_palette();
 		foreach ( array_keys( $colors ) as $key ) {
 			if ( isset( $input['palette'][ $key ] ) ) {
@@ -188,12 +191,38 @@ final class Validator {
 			}
 		}
 
+		$raw_emails = $input['notification_emails'] ?? ( array_key_exists( 'notification_email', $input ) ? array( $input['notification_email'] ) : array( get_option( 'admin_email' ) ) );
+		if ( ! is_array( $raw_emails ) || count( $raw_emails ) > 20 ) {
+			return new \WP_Error( 'jfb_notification_emails', __( 'Enter no more than 20 notification email addresses.', 'jplugin-formbuilder' ), array( 'status' => 400 ) );
+		}
+		$emails = array();
+		foreach ( array_values( $raw_emails ) as $index => $email ) {
+			if ( ! is_string( $email ) ) { return new \WP_Error( 'jfb_notification_email', __( 'Notification email must be text.', 'jplugin-formbuilder' ), array( 'status' => 400 ) ); }
+			$email = trim( $email );
+			if ( '' === $email ) { continue; }
+			if ( ! is_email( $email ) || sanitize_email( $email ) !== $email ) {
+				return new \WP_Error( 'jfb_notification_email', sprintf( __( 'Invalid notification email on line %d.', 'jplugin-formbuilder' ), $index + 1 ), array( 'status' => 400 ) );
+			}
+			$emails[ strtolower( $email ) ] = $email;
+		}
+		$reply_enabled = ! empty( $input['confirmation_enabled'] );
+		$reply_field = sanitize_text_field( (string) ( $input['confirmation_field'] ?? '' ) );
+		if ( $reply_enabled && ! array_filter( $fields, static fn( $field ) => 'email' === $field['type'] && $reply_field === $field['id'] ) ) {
+			return new \WP_Error( 'jfb_confirmation_field', __( 'Choose an email field for the confirmation message.', 'jplugin-formbuilder' ), array( 'status' => 400 ) );
+		}
+		if ( $reply_enabled && ( '' === trim( (string) ( $input['confirmation_subject'] ?? '' ) ) || '' === trim( (string) ( $input['confirmation_body'] ?? '' ) ) ) ) {
+			return new \WP_Error( 'jfb_confirmation_content', __( 'Enter a confirmation subject and message.', 'jplugin-formbuilder' ), array( 'status' => 400 ) );
+		}
 		return array(
+			'notification_emails' => array_values( $emails ),
+			'confirmation_enabled' => $reply_enabled,
+			'confirmation_field' => $reply_field,
+			'confirmation_subject' => mb_substr( sanitize_text_field( (string) ( $input['confirmation_subject'] ?? __( 'We received your response', 'jplugin-formbuilder' ) ) ), 0, 200 ),
+			'confirmation_body' => mb_substr( sanitize_textarea_field( (string) ( $input['confirmation_body'] ?? __( "Thank you. We received your response to {form_name}.\nReference: {submission_id}", 'jplugin-formbuilder' ) ) ), 0, 5000 ),
 			'success_message' => sanitize_text_field( (string) ( $input['success_message'] ?? __( 'Thank you. Your response has been received.', 'jplugin-formbuilder' ) ) ),
 			'eyebrow_text' => mb_substr( sanitize_text_field( (string) ( $input['eyebrow_text'] ?? __( 'Secure form', 'jplugin-formbuilder' ) ) ), 0, 120 ) ?: __( 'Secure form', 'jplugin-formbuilder' ),
 			'show_eyebrow' => ! array_key_exists( 'show_eyebrow', $input ) || ! empty( $input['show_eyebrow'] ),
 			'submit_label' => mb_substr( sanitize_text_field( (string) ( $input['submit_label'] ?? __( 'Send response', 'jplugin-formbuilder' ) ) ), 0, 120 ) ?: __( 'Send response', 'jplugin-formbuilder' ),
-			'notification_email' => sanitize_email( (string) ( $input['notification_email'] ?? get_option( 'admin_email' ) ) ),
 			'retention_days' => min( 3650, max( 0, absint( $input['retention_days'] ?? 0 ) ) ),
 			'palette' => $colors,
 		);

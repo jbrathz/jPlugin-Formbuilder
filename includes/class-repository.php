@@ -125,6 +125,7 @@ final class Repository {
 			return null;
 		}
 		$item = $this->hydrate_submission( $row );
+		$item['mail_log'] = $wpdb->get_results( $wpdb->prepare( 'SELECT id, kind, recipient, status, error_code, attempted_at FROM ' . Database::table( 'mail_log' ) . ' WHERE submission_id=%d ORDER BY id', $row['id'] ), ARRAY_A );
 		$item['files'] = $wpdb->get_results( $wpdb->prepare( 'SELECT uuid,field_key,original_name,mime_type,size_bytes FROM ' . Database::table( 'submission_files' ) . ' WHERE submission_id=%d', $row['id'] ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		return $item;
 	}
@@ -151,6 +152,7 @@ final class Repository {
 			Storage::delete( $file['storage_key'] );
 		}
 		$wpdb->delete( Database::table( 'submission_files' ), array( 'submission_id' => $submission_id ) );
+		$wpdb->delete( Database::table( 'mail_log' ), array( 'submission_id' => $submission_id ) );
 		$wpdb->delete( Database::table( 'submissions' ), array( 'id' => $submission_id ) );
 	}
 

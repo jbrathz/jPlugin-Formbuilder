@@ -18,6 +18,7 @@ final class Plugin {
 		add_action( 'admin_post_jfb_submit', array( $this, 'handle_fallback_submission' ) );
 		add_action( 'admin_post_jfb_export', array( $this, 'handle_export' ) );
 		add_action( 'admin_post_jfb_download', array( $this, 'handle_download' ) );
+		add_action( 'admin_post_jfb_retry_mail', array( $this, 'handle_retry_mail' ) );
 		add_action( 'admin_post_jfb_submission_status', array( $this, 'handle_submission_status' ) );
 		add_action( 'admin_post_jfb_purge_submission', array( $this, 'handle_purge_submission' ) );
 		add_action( 'admin_post_jfb_save_settings', array( $this, 'handle_save_settings' ) );
@@ -216,6 +217,18 @@ final class Plugin {
 		if ( ! $file || ! $path ) { wp_die( esc_html__( 'File not found.', 'jplugin-formbuilder' ), 404 ); }
 		nocache_headers(); header( 'Content-Type: application/octet-stream' ); header( 'Content-Disposition: attachment; filename="' . rawurlencode( $file['original_name'] ) . '"' ); header( 'X-Content-Type-Options: nosniff' ); header( 'Content-Length: ' . filesize( $path ) );
 		readfile( $path ); exit; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+	}
+
+	public function handle_retry_mail(): void {
+		if ( ! current_user_can( 'jfb_view_submissions' ) ) { wp_die( esc_html__( 'Permission denied.', 'jplugin-formbuilder' ), 403 ); }
+		$id = absint( $_POST['mail_id'] ?? 0 );
+		check_admin_referer( 'jfb_retry_mail_' . $id );
+		global $wpdb;
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT m.id, s.uuid FROM ' . Database::table( 'mail_log' ) . ' m INNER JOIN ' . Database::table( 'submissions' ) . ' s ON s.id=m.submission_id WHERE m.id=%d', $id ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		if ( ! $row ) { wp_die( esc_html__( 'Email record not found.', 'jplugin-formbuilder' ), 404 ); }
+		$sent = Mailer::send( $id );
+		wp_safe_redirect( add_query_arg( array( 'page' => 'jfb-inbox', 'submission' => $row['uuid'], 'jfb_mail_retry' => $sent ? 'sent' : 'failed' ), admin_url( 'admin.php' ) ) );
+		exit;
 	}
 
 	public function handle_submission_status(): void {
