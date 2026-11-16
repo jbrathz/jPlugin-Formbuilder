@@ -3,11 +3,11 @@
 namespace JFB;
 
 final class Database {
-	public const SCHEMA_VERSION = '1.0.1';
+	public const SCHEMA_VERSION = '1.0.2';
 
 	public static function table( string $name ): string {
 		global $wpdb;
-		$allowed = array( 'forms', 'submissions', 'submission_files', 'rate_limits' );
+		$allowed = array( 'forms', 'submissions', 'submission_files', 'rate_limits', 'mail_log' );
 		if ( ! in_array( $name, $allowed, true ) ) {
 			throw new \InvalidArgumentException( 'Unknown jPlugin Formbuilder table.' );
 		}
@@ -24,6 +24,7 @@ final class Database {
 		$subs    = self::table( 'submissions' );
 		$files   = self::table( 'submission_files' );
 		$limits  = self::table( 'rate_limits' );
+		$mail = self::table( 'mail_log' );
 
 		$sql = array(
 			"CREATE TABLE {$forms} (
@@ -77,6 +78,19 @@ final class Database {
 				PRIMARY KEY  (id),
 				UNIQUE KEY uuid (uuid),
 				UNIQUE KEY storage_key (storage_key),
+				KEY submission_id (submission_id)
+			) {$charset};",
+			"CREATE TABLE {$mail} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				submission_id bigint(20) unsigned NOT NULL,
+				kind varchar(20) NOT NULL,
+				recipient varchar(254) NOT NULL DEFAULT '',
+				subject text NOT NULL,
+				body longtext NOT NULL,
+				status varchar(20) NOT NULL,
+				error_code varchar(100) NOT NULL DEFAULT '',
+				attempted_at datetime NULL,
+				PRIMARY KEY  (id),
 				KEY submission_id (submission_id)
 			) {$charset};",
 			"CREATE TABLE {$limits} (

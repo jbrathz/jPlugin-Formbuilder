@@ -87,6 +87,10 @@
 		const successInput = root.querySelector( '[data-success-message]' );
 		const submitLabelInput = root.querySelector( '[data-submit-label]' );
 		const emailInput = root.querySelector( '[data-notification-email]' );
+		const confirmationEnabled = root.querySelector( '[data-confirmation-enabled]' );
+		const confirmationField = root.querySelector( '[data-confirmation-field]' );
+		const confirmationSubject = root.querySelector( '[data-confirmation-subject]' );
+		const confirmationBody = root.querySelector( '[data-confirmation-body]' );
 		const retentionInput = root.querySelector( '[data-retention-days]' );
 		const paletteInputs = Array.from( root.querySelectorAll( '[data-palette-key]' ) );
 		form.settings.palette = form.settings.palette || {};
@@ -108,11 +112,17 @@
 		statusInput.value = form.status;
 		successInput.value = form.settings.success_message || '';
 		submitLabelInput.value = form.settings.submit_label || '';
-		emailInput.value = form.settings.notification_email || '';
+		emailInput.value = ( form.settings.notification_emails || ( form.settings.notification_email ? [ form.settings.notification_email ] : [] ) ).join( '\n' );
+		confirmationEnabled.checked = Boolean( form.settings.confirmation_enabled );
+		confirmationSubject.value = form.settings.confirmation_subject ?? 'We received your response';
+		confirmationBody.value = form.settings.confirmation_body ?? 'Thank you. We received your response to {form_name}.\nReference: {submission_id}';
+		let selectedConfirmationField = form.settings.confirmation_field || '';
+		confirmationField.addEventListener( 'change', function () { selectedConfirmationField = confirmationField.value; changed(); } );
+		confirmationEnabled.addEventListener( 'change', changed );
 		retentionInput.value = form.settings.retention_days || 0;
 
 		function changed() { dirty = true; saveState.textContent = 'Unsaved changes'; saveState.classList.add( 'is-dirty' ); renderPreview(); }
-		[ nameInput, eyebrowTextInput, statusInput, successInput, submitLabelInput, emailInput, retentionInput ].forEach( function ( input ) { input.addEventListener( 'input', changed ); } );
+		[ nameInput, eyebrowTextInput, statusInput, successInput, submitLabelInput, emailInput, confirmationSubject, confirmationBody, retentionInput ].forEach( function ( input ) { input.addEventListener( 'input', changed ); } );
 		showEyebrowInput.addEventListener( 'change', changed );
 		paletteInputs.forEach( function ( input ) { input.addEventListener( 'input', function () { form.settings.palette[ input.dataset.paletteKey ] = input.value; changed(); updateContrast(); } ); } );
 
@@ -133,6 +143,10 @@
 		}
 
 		function renderFields() {
+			confirmationField.replaceChildren( node( 'option', { value: '' }, 'Select an email field' ) );
+			form.fields.filter( function ( field ) { return field.type === 'email'; } ).forEach( function ( field ) {
+				confirmationField.append( node( 'option', { value: field.id, selected: field.id === selectedConfirmationField }, ( field.label || 'Untitled field' ) + ' (' + field.key + ')' ) );
+			} );
 			fieldList.replaceChildren();
 			form.fields.forEach( function ( field, index ) {
 				const card = node( 'article', { className: 'jfb-field-card', draggable: true, 'data-index': String( index ) } );
@@ -155,7 +169,7 @@
 				const fieldSettings = is_content_block ? [ [ field.type === 'heading' ? 'Heading text' : 'Paragraph text', 'label', 'text' ] ] : [ [ 'Label', 'label', 'text' ], [ 'Field key', 'key', 'text' ], [ 'Help text', 'help', 'text' ], [ 'Placeholder', 'placeholder', 'text' ] ];
 				fieldSettings.forEach( function ( spec ) {
 					const input = node( 'input', { type: spec[ 2 ], value: field[ spec[ 1 ] ] || '' } );
-					input.addEventListener( 'input', function () { field[ spec[ 1 ] ] = input.value; changed(); } );
+					input.addEventListener( 'input', function () { field[ spec[ 1 ] ] = input.value; if ( field.type === 'email' && ( spec[ 1 ] === 'label' || spec[ 1 ] === 'key' ) ) { const option = Array.from( confirmationField.options ).find( function ( item ) { return item.value === field.id; } ); if ( option ) option.textContent = ( field.label || 'Untitled field' ) + ' (' + field.key + ')'; } changed(); } );
 					grid.append( fieldLabel( spec[ 0 ], input ) );
 				} );
 				if ( ! is_content_block ) {
@@ -216,7 +230,7 @@
 			try {
 				form = await api( root.dataset.restRoot, root.dataset.restNonce, '/forms/' + encodeURIComponent( form.uuid ), { method: 'PUT', body: JSON.stringify( {
 					name: nameInput.value, status: statusInput.value, fields: form.fields,
-					settings: { eyebrow_text: eyebrowTextInput.value, show_eyebrow: showEyebrowInput.checked, success_message: successInput.value, submit_label: submitLabelInput.value, notification_email: emailInput.value, retention_days: Number( retentionInput.value ), palette: form.settings.palette || {} }
+					settings: { eyebrow_text: eyebrowTextInput.value, show_eyebrow: showEyebrowInput.checked, success_message: successInput.value, submit_label: submitLabelInput.value, notification_emails: emailInput.value.split( /\r?\n/ ), confirmation_enabled: confirmationEnabled.checked, confirmation_field: selectedConfirmationField, confirmation_subject: confirmationSubject.value, confirmation_body: confirmationBody.value, retention_days: Number( retentionInput.value ), palette: form.settings.palette || {} }
 				} ) } );
 				dirty = false; saveState.textContent = 'Saved'; saveState.classList.remove( 'is-dirty' ); toast( root, 'Form saved.', false ); renderFields();
 			} catch ( error ) { saveState.textContent = 'Save failed'; toast( root, error.message, true ); } finally { button.disabled = false; }

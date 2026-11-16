@@ -4,7 +4,7 @@ Tags: forms, contact form, survey, turnstile, private upload
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.18
+Stable tag: 1.0.20
 License: GPLv2 or later
 
 Secure, theme-adaptive WordPress forms with a visual builder, private uploads, Cloudflare Turnstile, and a standalone submission inbox.
@@ -21,7 +21,8 @@ Features:
 * Cloudflare Turnstile, honeypot, timing checks, and hashed-IP rate limiting.
 * Private uploads with MIME/content checks and a direct-access Site Health test.
 * Filterable, paginated submission inbox with date- and form-scoped CSV export.
-* Retention, trash, secure download, and email notification.
+* Administrator-assigned response viewers for individual forms.
+* Retention, trash, secure download, multiple email notifications, and optional respondent confirmations.
 * Theme-adaptive CSS variables and per-form color palette.
 
 == Installation ==
@@ -37,6 +38,14 @@ For stronger private storage, define an absolute path outside the public documen
 `define( 'JFB_PRIVATE_UPLOAD_DIR', '/secure/persistent/path/jfb-private' );`
 
 The directory must be writable by PHP and persistent across deployments.
+
+== Email Notifications ==
+
+Each form can notify up to 20 addresses, one per line. Existing single-recipient settings remain active. Respondent confirmations are opt-in and require an email field. Both messages are sent through WordPress mail, so configure and test the site's mail transport. A sent status only indicates that WordPress accepted the message for sending; it does not guarantee inbox delivery. Failed messages can be retried from the submission inbox. Status, recipient and message snapshots are retained with the submission and removed when it is permanently deleted or expires.
+
+== Response Access ==
+
+An administrator can open jFormbuilder > Response access, select a form, and choose existing site users. Assigned users can open the Form responses menu, view and export responses for their assigned forms, and download their attachments. They cannot move responses to trash, restore or permanently delete them, or edit forms using this access. Removing a user from the form revokes that form's access. Users retain any broader permissions granted by their other WordPress roles or plugins. Form managers retain access to all responses.
 
 == Security Notes ==
 
@@ -55,10 +64,12 @@ After confirming that backups are complete, a database administrator may manuall
 * `wp_jfb_submissions`
 * `wp_jfb_submission_files`
 * `wp_jfb_rate_limits`
+* `wp_jfb_mail_log`
 
 The following WordPress options/transients may also be removed:
 
 * `jfb_settings`
+* `jfb_form_viewers`
 * `jfb_schema_version`
 * `_transient_jfb_cf_ranges` and its timeout
 * `_transient_jfb_vault_probe` and its timeout
@@ -66,6 +77,13 @@ The following WordPress options/transients may also be removed:
 Private files are stored in `JFB_PRIVATE_UPLOAD_DIR` when defined, otherwise in `wp-content/jfb-private`. Remove this directory manually only after confirming that retained submissions no longer need their files.
 
 == Changelog ==
+
+= 1.0.20 =
+* Added administrator-assigned, per-form response access with CSV export and attachment downloads.
+* Restricted response deletion and status management to form managers.
+
+= 1.0.19 =
+* Added multiple notification recipients, optional respondent confirmations, and per-recipient mail status with manual retry.
 
 = 1.0.18 =
 * Added form and date-range filters to the submission inbox, defaulting to the current month.

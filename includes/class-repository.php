@@ -125,6 +125,7 @@ final class Repository {
 			return null;
 		}
 		$item = $this->hydrate_submission( $row );
+		$item['mail_log'] = $wpdb->get_results( $wpdb->prepare( 'SELECT id, kind, recipient, status, error_code, attempted_at FROM ' . Database::table( 'mail_log' ) . ' WHERE submission_id=%d ORDER BY id', $row['id'] ), ARRAY_A );
 		$item['files'] = $wpdb->get_results( $wpdb->prepare( 'SELECT uuid,field_key,original_name,mime_type,size_bytes FROM ' . Database::table( 'submission_files' ) . ' WHERE submission_id=%d', $row['id'] ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		return $item;
 	}
@@ -136,6 +137,12 @@ final class Repository {
 		}
 		$data = array( 'status' => $status, 'deleted_at' => 'trash' === $status ? current_time( 'mysql', true ) : null );
 		return false !== $wpdb->update( Database::table( 'submissions' ), $data, array( 'uuid' => $uuid ) );
+	}
+
+	public function get_submission_by_id( int $id ): ?array {
+		global $wpdb;
+		$uuid = $wpdb->get_var( $wpdb->prepare( 'SELECT uuid FROM ' . Database::table( 'submissions' ) . ' WHERE id=%d', $id ) );
+		return $uuid ? $this->get_submission( $uuid ) : null;
 	}
 
 	public function get_file( string $uuid ): ?array {
@@ -151,6 +158,7 @@ final class Repository {
 			Storage::delete( $file['storage_key'] );
 		}
 		$wpdb->delete( Database::table( 'submission_files' ), array( 'submission_id' => $submission_id ) );
+		$wpdb->delete( Database::table( 'mail_log' ), array( 'submission_id' => $submission_id ) );
 		$wpdb->delete( Database::table( 'submissions' ), array( 'id' => $submission_id ) );
 	}
 
@@ -190,6 +198,17 @@ final class Repository {
 	private function submission_where( array $filters ): array {
 		$where = array( '1=1' );
 		$args  = array();
+
+		if ( ! Access::can_manage() ) {
+			$ids = Access::form_ids( get_current_user_id() );
+			if ( ! $ids ) {
+				$where[] = '1=0';
+			} else {
+				$where[] = 's.form_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')';
+				$args = array_merge( $args, $ids );
+			}
+			$filters['status'] = '';
+		}
 
 		if ( ! empty( $filters['form_id'] ) ) {
 			$where[] = 's.form_id = %d';

@@ -60,19 +60,8 @@ final class Submission_Service {
 			}
 		}
 
-		$this->send_notification( $form, $submission );
+		Mailer::notify( $form, $submission, $payload );
 		return array( 'uuid' => $submission['uuid'], 'message' => $form['settings']['success_message'] ?? __( 'Thank you. Your response has been received.', 'jplugin-formbuilder' ) );
 	}
 
-	private function send_notification( array $form, array $submission ): void {
-		$to = sanitize_email( $form['settings']['notification_email'] ?? '' );
-		if ( ! is_email( $to ) ) {
-			return;
-		}
-		$url = add_query_arg( array( 'page' => 'jfb-inbox', 'submission' => $submission['uuid'] ), admin_url( 'admin.php' ) );
-		$subject = sprintf( __( '[%s] New form response', 'jplugin-formbuilder' ), wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
-		$body = sprintf( __( "Form: %1\$s\nReceived: %2\$s UTC\nSubmission ID: %3\$s\nReview securely: %4\$s", 'jplugin-formbuilder' ), $form['name'], $submission['created_at'], $submission['uuid'], esc_url_raw( $url ) );
-		wp_mail( $to, $subject, $body );
-	}
 }
-
