@@ -6,9 +6,14 @@ final class Admin {
 	public function __construct( private readonly Repository $repository ) {}
 
 	public function register_menu(): void {
+		if ( ! current_user_can( 'jfb_manage_forms' ) ) {
+			add_menu_page( __( 'Responses', 'jplugin-formbuilder' ), __( 'Form responses', 'jplugin-formbuilder' ), 'jfb_view_submissions', 'jfb-inbox', array( $this, 'inbox_page' ), 'dashicons-feedback', 58 );
+			return;
+		}
 		add_menu_page( __( 'jFormbuilder', 'jplugin-formbuilder' ), __( 'jFormbuilder', 'jplugin-formbuilder' ), 'jfb_manage_forms', 'jfb-forms', array( $this, 'forms_page' ), 'dashicons-feedback', 58 );
 		add_submenu_page( 'jfb-forms', __( 'Forms', 'jplugin-formbuilder' ), __( 'Forms', 'jplugin-formbuilder' ), 'jfb_manage_forms', 'jfb-forms', array( $this, 'forms_page' ) );
 		add_submenu_page( 'jfb-forms', __( 'Inbox', 'jplugin-formbuilder' ), __( 'Inbox', 'jplugin-formbuilder' ), 'jfb_view_submissions', 'jfb-inbox', array( $this, 'inbox_page' ) );
+		add_submenu_page( 'jfb-forms', __( 'Response access', 'jplugin-formbuilder' ), __( 'Response access', 'jplugin-formbuilder' ), 'manage_options', 'jfb-access', array( $this, 'access_page' ) );
 		add_submenu_page( 'jfb-forms', __( 'Settings', 'jplugin-formbuilder' ), __( 'Settings', 'jplugin-formbuilder' ), 'jfb_manage_settings', 'jfb-settings', array( $this, 'settings_page' ) );
 	}
 
@@ -76,18 +81,47 @@ final class Admin {
 		<?php
 	}
 
+	public function access_page(): void {
+		$this->guard( 'manage_options' );
+		$this->guard( 'jfb_manage_forms' );
+		$forms = $this->repository->list_forms();
+		$uuid = sanitize_text_field( wp_unslash( (string) ( $_GET['form'] ?? '' ) ) );
+		$form = $uuid ? $this->repository->get_form( $uuid ) : null;
+		$users = $form ? get_users( array( 'orderby' => 'display_name', 'order' => 'ASC', 'fields' => array( 'ID', 'display_name', 'user_login' ) ) ) : array();
+		$assignments = Access::assignments();
+		$selected = $form && isset( $assignments[ $form['id'] ] ) && is_array( $assignments[ $form['id'] ] ) ? array_map( 'intval', $assignments[ $form['id'] ] ) : array();
+		?>
+		<div class="wrap jfb-admin-wrap">
+			<?php $this->masthead( __( 'Response access', 'jplugin-formbuilder' ), __( 'Choose which users can view and export responses for each form.', 'jplugin-formbuilder' ) ); ?>
+			<?php if ( isset( $_GET['saved'] ) ) : ?><div class="notice notice-success"><p><?php esc_html_e( 'Access saved.', 'jplugin-formbuilder' ); ?></p></div><?php endif; ?>
+			<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="jfb-panel">
+				<input type="hidden" name="page" value="jfb-access">
+				<label for="jfb-access-form"><?php esc_html_e( 'Form', 'jplugin-formbuilder' ); ?></label>
+				<select id="jfb-access-form" name="form"><option value=""><?php esc_html_e( 'Select a form', 'jplugin-formbuilder' ); ?></option><?php foreach ( $forms as $choice ) : ?><option value="<?php echo esc_attr( $choice['uuid'] ); ?>" <?php selected( $uuid, $choice['uuid'] ); ?>><?php echo esc_html( $choice['name'] ); ?></option><?php endforeach; ?></select>
+				<button class="button"><?php esc_html_e( 'Choose', 'jplugin-formbuilder' ); ?></button>
+			</form>
+			<?php if ( $form ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="jfb-panel">
+				<input type="hidden" name="action" value="jfb_save_viewers"><input type="hidden" name="form_uuid" value="<?php echo esc_attr( $form['uuid'] ); ?>"><?php wp_nonce_field( 'jfb_save_viewers' ); ?>
+				<h2><?php echo esc_html( $form['name'] ); ?></h2><p><?php esc_html_e( 'Selected users can view and export responses and download attachments. They cannot delete responses or manage forms through these permissions.', 'jplugin-formbuilder' ); ?></p>
+				<?php foreach ( $users as $user ) : ?><p><label><input type="checkbox" name="viewers[]" value="<?php echo esc_attr( $user->ID ); ?>" <?php checked( in_array( (int) $user->ID, $selected, true ) ); ?>> <?php echo esc_html( $user->display_name . ' (' . $user->user_login . ')' ); ?></label></p><?php endforeach; ?>
+				<button type="submit" class="button button-primary"><?php esc_html_e( 'Save access', 'jplugin-formbuilder' ); ?></button>
+			</form><?php endif; ?>
+		</div>
+		<?php
+	}
+
 	public function inbox_page(): void {
 		$this->guard( 'jfb_view_submissions' );
 		$uuid           = sanitize_text_field( wp_unslash( (string) ( $_GET['submission'] ?? '' ) ) );
 		$current_status = sanitize_key( wp_unslash( (string) ( $_GET['status'] ?? '' ) ) );
-		$current_status = 'trash' === $current_status ? 'trash' : '';
+		$current_status = Access::can_manage() && 'trash' === $current_status ? 'trash' : '';
 		$form_id        = absint( wp_unslash( (string) ( $_GET['form_id'] ?? '0' ) ) );
 		$date_from      = $this->valid_date( wp_unslash( (string) ( $_GET['date_from'] ?? '' ) ) ) ?: wp_date( 'Y-m-01' );
 		$date_to        = $this->valid_date( wp_unslash( (string) ( $_GET['date_to'] ?? '' ) ) ) ?: wp_date( 'Y-m-t' );
 		if ( $date_from > $date_to ) {
 			[ $date_from, $date_to ] = array( $date_to, $date_from );
 		}
-		$forms          = $this->repository->list_forms();
+		$forms          = array_filter( $this->repository->list_forms(), static fn( array $form ): bool => Access::can_view_form( (int) $form['id'] ) );
 		$per_page       = 20;
 		$paged          = max( 1, absint( wp_unslash( (string) ( $_GET['paged'] ?? '1' ) ) ) );
 		$filters        = array(
@@ -109,7 +143,7 @@ final class Admin {
 		$export_url     = wp_nonce_url( add_query_arg( array_merge( array( 'action' => 'jfb_export' ), array_diff_key( $filter_args, array( 'status' => true ) ) ), admin_url( 'admin-post.php' ) ), 'jfb_export' );
 		?>
 		<div class="wrap jfb-admin-wrap"><?php $this->masthead( __( 'Submission inbox', 'jplugin-formbuilder' ), __( 'Review responses in WordPress. Sensitive values never travel in notification emails.', 'jplugin-formbuilder' ) ); ?>
-			<nav class="nav-tab-wrapper"><a class="nav-tab <?php echo 'trash' !== $current_status ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( $inbox_url ); ?>"><?php esc_html_e( 'Inbox', 'jplugin-formbuilder' ); ?></a><a class="nav-tab <?php echo 'trash' === $current_status ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( $trash_url ); ?>"><?php esc_html_e( 'Trash', 'jplugin-formbuilder' ); ?></a></nav>
+			<nav class="nav-tab-wrapper"><a class="nav-tab <?php echo 'trash' !== $current_status ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( $inbox_url ); ?>"><?php esc_html_e( 'Inbox', 'jplugin-formbuilder' ); ?></a><?php if ( Access::can_manage() ) : ?><a class="nav-tab <?php echo 'trash' === $current_status ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( $trash_url ); ?>"><?php esc_html_e( 'Trash', 'jplugin-formbuilder' ); ?></a><?php endif; ?></nav>
 			<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="jfb-panel jfb-inbox-filters">
 				<input type="hidden" name="page" value="jfb-inbox">
 				<?php if ( 'trash' === $current_status ) : ?><input type="hidden" name="status" value="trash"><?php endif; ?>
@@ -152,7 +186,7 @@ final class Admin {
 		if ( ! wp_is_uuid( $uuid ) ) { echo '<div class="jfb-empty"><h3>' . esc_html__( 'Select a response', 'jplugin-formbuilder' ) . '</h3></div>'; return; }
 		$item = $this->repository->get_submission( $uuid );
 		if ( isset( $_GET['jfb_mail_retry'] ) ) { $retry = sanitize_key( wp_unslash( $_GET['jfb_mail_retry'] ) ); echo '<div class="notice notice-info inline"><p>' . esc_html( 'sent' === $retry ? __( 'Email accepted by the mail system.', 'jplugin-formbuilder' ) : __( 'Email could not be sent or is no longer eligible for retry.', 'jplugin-formbuilder' ) ) . '</p></div>'; }
-		if ( ! $item ) { echo '<div class="notice notice-error"><p>' . esc_html__( 'Submission not found.', 'jplugin-formbuilder' ) . '</p></div>'; return; }
+		if ( ! Access::can_view_submission( $item ) ) { echo '<div class="notice notice-error"><p>' . esc_html__( 'Submission not found.', 'jplugin-formbuilder' ) . '</p></div>'; return; }
 		if ( 'new' === $item['status'] ) { $this->repository->update_submission_status( $uuid, 'read' ); }
 		echo '<span class="jfb-kicker">' . esc_html( $item['form_name'] ) . '</span><h2>' . esc_html__( 'Response detail', 'jplugin-formbuilder' ) . '</h2><dl class="jfb-response-values">';
 		foreach ( $item['fields'] as $field ) { $key = $field['key'] ?? ''; if ( ! array_key_exists( $key, $item['payload'] ) ) { continue; } $value = is_array( $item['payload'][ $key ] ) ? implode( ', ', $item['payload'][ $key ] ) : $item['payload'][ $key ]; echo '<div><dt>' . esc_html( $field['label'] ?: $key ) . '</dt><dd>' . nl2br( esc_html( $value ) ) . '</dd></div>'; }
@@ -166,13 +200,14 @@ final class Admin {
 			if ( 'failed' === $mail['status'] && $mail['error_code'] ) { echo ' (' . esc_html( $mail['error_code'] ) . ')'; }
 			if ( $mail['attempted_at'] ) { echo ' · ' . esc_html( get_date_from_gmt( $mail['attempted_at'], 'd M Y H:i' ) ); }
 			echo '</p>';
-			if ( 'failed' === $mail['status'] ) {
+			if ( 'failed' === $mail['status'] && Access::can_manage() ) {
 				echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="jfb_retry_mail"><input type="hidden" name="mail_id" value="' . esc_attr( $mail['id'] ) . '">';
 				wp_nonce_field( 'jfb_retry_mail_' . $mail['id'] );
 				echo '<button type="submit" class="button button-small">' . esc_html__( 'Retry sending', 'jplugin-formbuilder' ) . '</button></form>';
 			}
 		}
 		if ( $item['files'] ) { echo '<h3>' . esc_html__( 'Private files', 'jplugin-formbuilder' ) . '</h3><ul>'; foreach ( $item['files'] as $file ) { $url = wp_nonce_url( admin_url( 'admin-post.php?action=jfb_download&file=' . rawurlencode( $file['uuid'] ) ), 'jfb_download_' . $file['uuid'] ); echo '<li><a href="' . esc_url( $url ) . '">' . esc_html( $file['original_name'] ) . '</a> <small>(' . esc_html( size_format( $file['size_bytes'] ) ) . ')</small></li>'; } echo '</ul>'; }
+		if ( ! Access::can_manage() ) { return; }
 		if ( 'trash' === $item['status'] ) {
 			$restore = wp_nonce_url( admin_url( 'admin-post.php?action=jfb_submission_status&submission=' . rawurlencode( $uuid ) . '&status=read' ), 'jfb_submission_status_' . $uuid );
 			$purge = wp_nonce_url( admin_url( 'admin-post.php?action=jfb_purge_submission&submission=' . rawurlencode( $uuid ) ), 'jfb_purge_submission_' . $uuid );

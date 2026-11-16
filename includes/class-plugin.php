@@ -11,7 +11,9 @@ final class Plugin {
 		$this->submissions = new Submission_Service( $this->repository );
 		$renderer          = new Renderer( $this->repository );
 
+		add_filter( 'user_has_cap', array( Access::class, 'grant_viewer_caps' ), 10, 4 );
 		add_action( 'init', array( $this, 'register_assets_and_block' ) );
+		add_action( 'admin_post_jfb_save_viewers', array( $this, 'handle_save_viewers' ) );
 		add_shortcode( 'jplugin_form', array( $renderer, 'render_shortcode' ) );
 		add_action( 'rest_api_init', array( new Rest_Controller( $this->repository, $this->submissions ), 'register_routes' ) );
 		add_action( 'admin_post_nopriv_jfb_submit', array( $this, 'handle_fallback_submission' ) );
@@ -91,6 +93,25 @@ final class Plugin {
 		}
 
 		return $url . '#' . rawurlencode( $anchor );
+	}
+
+	public function handle_save_viewers(): void {
+		if ( ! current_user_can( 'manage_options' ) || ! current_user_can( 'jfb_manage_forms' ) ) { wp_die( esc_html__( 'Permission denied.', 'jplugin-formbuilder' ), 403 ); }
+		check_admin_referer( 'jfb_save_viewers' );
+		$form_uuid = sanitize_text_field( wp_unslash( (string) ( $_POST['form_uuid'] ?? '' ) ) );
+		$form = $this->repository->get_form( $form_uuid );
+		if ( ! $form ) { wp_die( esc_html__( 'Form not found.', 'jplugin-formbuilder' ), 404 ); }
+		$input = isset( $_POST['viewers'] ) && is_array( $_POST['viewers'] ) ? wp_unslash( $_POST['viewers'] ) : array();
+		$users = array();
+		foreach ( $input as $id ) {
+			$id = absint( $id );
+			if ( $id && get_userdata( $id ) && is_user_member_of_blog( $id ) ) { $users[] = $id; }
+		}
+		$assignments = Access::assignments();
+		$assignments[ $form['id'] ] = array_values( array_unique( $users ) );
+		update_option( Access::OPTION, $assignments, false );
+		wp_safe_redirect( add_query_arg( array( 'page' => 'jfb-access', 'form' => $form_uuid, 'saved' => '1' ), admin_url( 'admin.php' ) ) );
+		exit;
 	}
 
 	public function handle_export(): void {
@@ -213,6 +234,7 @@ final class Plugin {
 			wp_die( esc_html__( 'You do not have permission to download this file.', 'jplugin-formbuilder' ), 403 );
 		}
 		$file = $this->repository->get_file( $uuid );
+		if ( $file && ! Access::can_view_submission( $this->repository->get_submission_by_id( (int) $file['submission_id'] ) ) ) { wp_die( esc_html__( 'File not found.', 'jplugin-formbuilder' ), 404 ); }
 		$path = $file ? Storage::resolve( $file['storage_key'] ) : false;
 		if ( ! $file || ! $path ) { wp_die( esc_html__( 'File not found.', 'jplugin-formbuilder' ), 404 ); }
 		nocache_headers(); header( 'Content-Type: application/octet-stream' ); header( 'Content-Disposition: attachment; filename="' . rawurlencode( $file['original_name'] ) . '"' ); header( 'X-Content-Type-Options: nosniff' ); header( 'Content-Length: ' . filesize( $path ) );
@@ -220,7 +242,7 @@ final class Plugin {
 	}
 
 	public function handle_retry_mail(): void {
-		if ( ! current_user_can( 'jfb_view_submissions' ) ) { wp_die( esc_html__( 'Permission denied.', 'jplugin-formbuilder' ), 403 ); }
+		if ( ! Access::can_manage() ) { wp_die( esc_html__( 'Permission denied.', 'jplugin-formbuilder' ), 403 ); }
 		$id = absint( $_POST['mail_id'] ?? 0 );
 		check_admin_referer( 'jfb_retry_mail_' . $id );
 		global $wpdb;
@@ -234,14 +256,14 @@ final class Plugin {
 	public function handle_submission_status(): void {
 		$uuid = sanitize_text_field( wp_unslash( (string) ( $_GET['submission'] ?? '' ) ) );
 		$status = sanitize_key( wp_unslash( (string) ( $_GET['status'] ?? '' ) ) );
-		if ( ! current_user_can( 'jfb_view_submissions' ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'jfb_submission_status_' . $uuid ) ) { wp_die( esc_html__( 'Permission denied.', 'jplugin-formbuilder' ), 403 ); }
+		if ( ! Access::can_manage() || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'jfb_submission_status_' . $uuid ) ) { wp_die( esc_html__( 'Permission denied.', 'jplugin-formbuilder' ), 403 ); }
 		$this->repository->update_submission_status( $uuid, $status );
 		wp_safe_redirect( admin_url( 'admin.php?page=jfb-inbox' ) ); exit;
 	}
 
 	public function handle_purge_submission(): void {
 		$uuid = sanitize_text_field( wp_unslash( (string) ( $_GET['submission'] ?? '' ) ) );
-		if ( ! current_user_can( 'jfb_view_submissions' ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'jfb_purge_submission_' . $uuid ) ) {
+		if ( ! Access::can_manage() || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'jfb_purge_submission_' . $uuid ) ) {
 			wp_die( esc_html__( 'Permission denied.', 'jplugin-formbuilder' ), 403 );
 		}
 		$item = $this->repository->get_submission( $uuid );

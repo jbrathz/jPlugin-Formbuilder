@@ -34,7 +34,7 @@ final class Rest_Controller extends \WP_REST_Controller {
 		) );
 		register_rest_route( $this->namespace, '/submissions/(?P<uuid>[a-f0-9-]{36})', array(
 			array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $this, 'get_submission' ), 'permission_callback' => array( $this, 'can_view_submissions' ) ),
-			array( 'methods' => \WP_REST_Server::EDITABLE, 'callback' => array( $this, 'update_submission' ), 'permission_callback' => array( $this, 'can_view_submissions' ) ),
+			array( 'methods' => \WP_REST_Server::EDITABLE, 'callback' => array( $this, 'update_submission' ), 'permission_callback' => array( $this, 'can_manage_forms' ) ),
 		) );
 		register_rest_route( $this->namespace, '/templates', array(
 			'methods' => \WP_REST_Server::READABLE,
@@ -86,7 +86,7 @@ final class Rest_Controller extends \WP_REST_Controller {
 
 	public function get_submission( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		$item = $this->repository->get_submission( $request['uuid'] );
-		if ( ! $item ) {
+		if ( ! Access::can_view_submission( $item ) ) {
 			return new \WP_Error( 'jfb_not_found', __( 'Submission not found.', 'jplugin-formbuilder' ), array( 'status' => 404 ) );
 		}
 		if ( 'new' === $item['status'] ) {

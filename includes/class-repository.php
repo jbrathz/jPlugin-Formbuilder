@@ -139,6 +139,12 @@ final class Repository {
 		return false !== $wpdb->update( Database::table( 'submissions' ), $data, array( 'uuid' => $uuid ) );
 	}
 
+	public function get_submission_by_id( int $id ): ?array {
+		global $wpdb;
+		$uuid = $wpdb->get_var( $wpdb->prepare( 'SELECT uuid FROM ' . Database::table( 'submissions' ) . ' WHERE id=%d', $id ) );
+		return $uuid ? $this->get_submission( $uuid ) : null;
+	}
+
 	public function get_file( string $uuid ): ?array {
 		global $wpdb;
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . Database::table( 'submission_files' ) . ' WHERE uuid=%s', $uuid ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
@@ -192,6 +198,17 @@ final class Repository {
 	private function submission_where( array $filters ): array {
 		$where = array( '1=1' );
 		$args  = array();
+
+		if ( ! Access::can_manage() ) {
+			$ids = Access::form_ids( get_current_user_id() );
+			if ( ! $ids ) {
+				$where[] = '1=0';
+			} else {
+				$where[] = 's.form_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')';
+				$args = array_merge( $args, $ids );
+			}
+			$filters['status'] = '';
+		}
 
 		if ( ! empty( $filters['form_id'] ) ) {
 			$where[] = 's.form_id = %d';
