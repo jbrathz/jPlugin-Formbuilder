@@ -4,7 +4,7 @@ Tags: forms, contact form, survey, turnstile, private upload
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.20
+Stable tag: 1.0.21
 License: GPLv2 or later
 
 Secure, theme-adaptive WordPress forms with a visual builder, private uploads, Cloudflare Turnstile, and a standalone submission inbox.
@@ -41,7 +41,7 @@ The directory must be writable by PHP and persistent across deployments.
 
 == Email Notifications ==
 
-Each form can notify up to 20 addresses, one per line. Existing single-recipient settings remain active. Respondent confirmations are opt-in and require an email field. Both messages are sent through WordPress mail, so configure and test the site's mail transport. A sent status only indicates that WordPress accepted the message for sending; it does not guarantee inbox delivery. Failed messages can be retried from the submission inbox. Status, recipient and message snapshots are retained with the submission and removed when it is permanently deleted or expires.
+Each form can notify up to 20 addresses, one per line. Existing single-recipient settings remain active. The notification shows the submitted answers and links to the submission inbox, where authorized users can download uploaded files. Respondent confirmations are opt-in and require an email field. Both messages are sent through WordPress mail, so configure and test the site's mail transport. A sent status only indicates that WordPress accepted the message for sending; it does not guarantee inbox delivery. Failed messages can be retried from the submission inbox. Status, recipient and message snapshots are retained with the submission and removed when it is permanently deleted or expires.
 
 == Response Access ==
 
@@ -77,6 +77,9 @@ The following WordPress options/transients may also be removed:
 Private files are stored in `JFB_PRIVATE_UPLOAD_DIR` when defined, otherwise in `wp-content/jfb-private`. Remove this directory manually only after confirming that retained submissions no longer need their files.
 
 == Changelog ==
+
+= 1.0.21 =
+* Included submitted answers in admin notification emails.
 
 = 1.0.20 =
 * Added administrator-assigned, per-form response access with CSV export and attachment downloads.
